@@ -1,6 +1,6 @@
 # NuclearObjects_ImageAnalysis
 
-# MatLab scripts for image analysis of objects inside cell nuclei
+MatLab scripts for image analysis of objects inside cell nuclei
 
 Currently, the repository contains the scripts for extracting and analyzing Nikon .nd2 files with multiple XY positions in them.
 
