@@ -38,6 +38,10 @@ S2P_seg_numStdDev = 6; % number of standard deviations in robust threshold
 Nuc_min_vol = 10; % cubic microns
 Nuc_min_sol = 0.7; % to ensure round nuclei
 
+% Inner and outer extension of a nuclear masks to cover cytoplasm
+cytoMask_extension = 1.5; % in microns
+cytoMask_distance = 1.0; % in microns
+
 % Minimum volumes for objects inside the nuclei
 S5P_minVol = 0.03; % cubic microns
 S2P_minVol = 0.005; % cubic microns
@@ -72,6 +76,7 @@ validFileFlag = false(1,numFiles);
 % Variables to store properties of nuclei
 numNuclei_vec = zeros(1,numFiles);
 nuc_intCell = cell(1,numFiles);
+cyto_intCell = cell(1,numFiles);
 nuc_medianVolCell = cell(1,numFiles);
 perNuc_countCell = cell(1,numFiles);
 
@@ -149,10 +154,24 @@ parfor ff = 1:numFiles
 	numNuclei_vec(ff) = numNuclei;
 	
 	nuc_intCell{ff} = cell(1,numQuantChannels);
+	cyto_intCell{ff} = cell(1,numQuantChannels);
 	for qq = 1:numQuantChannels
 		quantImg = imgStack{quantChannels(qq)};
 		quantProps = regionprops(comps,quantImg,'MeanIntensity');
 		nuc_intCell{ff}{qq} = [quantProps.MeanIntensity];
+		cyto_intCell{ff}{qq} = zeros(1,numNuclei);
+		for nn = 1:numNuclei
+			cytoMask = false(size(quantImg));
+			cytoMask(quantProps.VoxelIdxList{nn}) = true;
+			coreMask = cytoMask;
+			se = strel('disk',round(cytoMask_extension./pixelSize));
+			cytoMask = imdilate(cytoMask,se);
+			se = strel('disk',round(cytoMask_distance./pixelSize));
+			coreMask = imdilate(coreMask,se);
+			cytoMask(coreMask) = false;
+			cytoMask = cytoMask & ~NucSegMask;
+			cyto_intCell{ff}{qq}(nn) = mean(quantImg(cytoMask));
+		end
 	end
 	
 	if comps.NumObjects>0
@@ -497,6 +516,7 @@ end
 
 condNames = condNames(validFileFlag);
 nuc_intCell = nuc_intCell(validFileFlag);
+cyto_intCell = cyto_intCell(validFileFlag);
 nuc_medianVolCell = nuc_medianVolCell(validFileFlag);
 perNuc_countCell = perNuc_countCell(validFileFlag);
 
@@ -532,6 +552,7 @@ sortedNumNuclei = zeros(1,numConds);
 sortedNumFiles = zeros(1,numConds);
 
 sortedNucIntCell = cell(1,numQuantChannels);
+sortedCytoIntCell = cell(1,numQuantChannels);
 
 sortedS5PNumCell = cell(1,numConds);
 sortedS5PVolCell = cell(1,numConds);
@@ -551,6 +572,7 @@ sortedS2PIntCell = cell(1,numQuantChannels);
 
 for qq = 1:numQuantChannels
 	sortedNucIntCell{qq} = cell(1,numConds);
+	sortedCytoIntCell{qq} = cell(1,numConds);
 	sortedS5PIntCell{qq} = cell(1,numConds);
 	sortedS2PIntCell{qq} = cell(1,numConds);
 end
@@ -611,7 +633,13 @@ for cc = 1:numConds
 			find(fileIndsCell{cc}),...
 			'UniformOutput',false));
 		sortedNucIntCell{qq}{cc} = horzcat(sortedNucIntCell{qq}{cc}{:})';
-
+		
+		sortedCytoIntCell{qq}{cc} = vertcat(arrayfun(...
+			@(ind)cyto_intCell{ind}{qq},....
+			find(fileIndsCell{cc}),...
+			'UniformOutput',false));
+		sortedCytoIntCell{qq}{cc} = horzcat(sortedCytoIntCell{qq}{cc}{:})';
+		
 		sortedS5PIntCell{qq}{cc} = vertcat(arrayfun(...
 			@(ind)S5P_intCell{ind}{qq},....
 			find(fileIndsCell{cc}),...
@@ -656,8 +684,8 @@ for cc = 1:numConds
 	
 	S5P_Num_vals = [sortedS5PNumCell{cc}];
 	S2P_Num_vals = [sortedS2PNumCell{cc}];
-	Nuc_S5P_vals = [sortedNucIntCell{1}{cc}];
-	Nuc_S2P_vals = [sortedNucIntCell{2}{cc}];
+	Nuc_S5P_vals = [sortedNucIntCell{1}{cc}-sortedCytoIntCell{1}{cc}];
+	Nuc_S2P_vals = [sortedNucIntCell{2}{cc}-sortedCytoIntCell{1}{cc}];
 	
 	S5P_S5P_vals = [sortedS5PIntCell{1}{cc}(inclInds)];
 	S5P_S2P_vals = [sortedS5PIntCell{2}{cc}(inclInds)];
@@ -672,11 +700,7 @@ for cc = 1:numConds
     S2P_Elo_vals = [sortedS2PEloCell{cc}];
 	S2P_Sol_vals = [sortedS2PSolCell{cc}];
 % 	S2P_slices = [sortedS2PCentralSliceCell{cc}];
-	
-	
-% 	S2P_S5P_vals = [sortedS2PIntCell{1}{cc}(inclInds)];
-% 	S2P_S2P_vals = [sortedS2PIntCell{2}{cc}(inclInds)];
-% 	
+		
 	numPoints = numel(S5P_S2P_vals);
 	
 	n_boot = 200;
@@ -716,7 +740,7 @@ for cc = 1:numConds
 	
 end
 
-% plot overview
+%% plot overview
 
 figure(1)
 clf
