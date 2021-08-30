@@ -157,7 +157,8 @@ parfor ff = 1:numFiles
 	cyto_intCell{ff} = cell(1,numQuantChannels);
 	for qq = 1:numQuantChannels
 		quantImg = imgStack{quantChannels(qq)};
-		quantProps = regionprops(comps,quantImg,'MeanIntensity');
+		quantProps = regionprops3(comps,quantImg,...
+			'MeanIntensity','VoxelIdxList');
 		nuc_intCell{ff}{qq} = [quantProps.MeanIntensity];
 		cyto_intCell{ff}{qq} = zeros(1,numNuclei);
 		for nn = 1:numNuclei
