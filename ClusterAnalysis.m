@@ -131,6 +131,9 @@ parfor ff = 1:numFiles
 	imagesc(squeeze(NucSegMask(:,:,ceil(imgSize(3)./2))))
 	axis tight equal
 	
+% Uncomment the following two lines, and remove the par in parfor above, if
+% you want to check the extracted images one by one
+%   fprintf('File name: %s',thisFilePath)
 % 	waitforbuttonpress
 	
 	% --- Connected component segmentation of nuclei
