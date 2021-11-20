@@ -14,6 +14,11 @@ bfmatlab:
 https://www.openmicroscopy.org/bio-formats/downloads/
 
 Adding a directory to the MatLab path permanently:
+1. Click the option "Set Path" in the Tab "Home"
+2. Navigate to the place where you save bfmatlab, open the directory and add to path
+3. Click the button "Preferences" in the Tab "Home"
+4. Select the bfmatlab directory, then click the button "Save"
+
 https://www.mathworks.com/matlabcentral/answers/97215-how-do-i-automatically-add-folders-to-the-matlab-path-on-startup
 
 # Use instructions
