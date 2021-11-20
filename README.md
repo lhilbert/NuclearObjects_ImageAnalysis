@@ -23,6 +23,17 @@ https://www.mathworks.com/matlabcentral/answers/97215-how-do-i-automatically-add
 3. Once you see that this is working, you can specify the cootents of the ClusterAnalysis.m file t fit the needs of your analysis and graphical outputs
 4. You can also try out ExampleImages.m, so you can prepare nice plots based on the extracted data
 
+# Example data set
+
+A useful data set for an example analysis is provided by the Hilbert lab via Zenodo:
+https://zenodo.org/record/5242771#.YZjuAS1Q1pQ
+
+Not the entire data set is needed, downloading two of the smaller files will be sufficient:
+https://zenodo.org/record/5242771/files/MainSample_Embryo3_004_crop.nd2?download=1
+https://zenodo.org/record/5242771/files/MainSample_Embryo4_005_crop.nd2?download=1
+
+Ideally, place these into one extra folder in the directory where you have saved the MatLab scripts. It is the easiest way to keep the scripts and data together in one and the same place.
+
 # Acknowledgments
 
 The scripts make use of the rdir.m scripts for recursive directory search
