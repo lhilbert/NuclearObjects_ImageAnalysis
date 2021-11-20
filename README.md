@@ -19,8 +19,6 @@ Adding a directory to the MatLab path permanently:
 3. Click the button "Preferences" in the Tab "Home"
 4. Select the bfmatlab directory, then click the button "Save"
 
-https://www.mathworks.com/matlabcentral/answers/97215-how-do-i-automatically-add-folders-to-the-matlab-path-on-startup
-
 # Use instructions
 
 1. Specifiy which files shoudl be extracted, and what color channels shoudl be retained in MultiPosition_extraction_nd2.m, then run the script to oextract the raw data into .mat MatLab format data files
