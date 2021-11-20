@@ -29,13 +29,19 @@ Adding a directory to the MatLab path permanently:
 # Example data set
 
 A useful data set for an example analysis is provided by the Hilbert lab via Zenodo:
-https://zenodo.org/record/5242771#.YZjuAS1Q1pQ
+https://zenodo.org/record/5242952#.YZkwLy1Q1pQ
 
-Not the entire data set is needed, downloading two of the smaller files will be sufficient:
-https://zenodo.org/record/5242771/files/MainSample_Embryo3_004_crop.nd2?download=1
-https://zenodo.org/record/5242771/files/MainSample_Embryo4_005_crop.nd2?download=1
+First, create a folder called ImageData, which you place in the directory where you have saved the MatLab scripts. It is the easiest way to keep the scripts and data together in one and the same place.
 
-Ideally, place these into one extra folder in the directory where you have saved the MatLab scripts. It is the easiest way to keep the scripts and data together in one and the same place.
+Second, inside the ImageData folder, create two more folders, called Ctrl and FP.
+
+In the Ctrl folder, store the following two files:
+https://zenodo.org/record/5242952/files/SetC_Control_004_crop.nd2?download=1
+https://zenodo.org/record/5242952/files/SetD_Control_007_crop.nd2?download=1
+
+In the FP folder, store the following two files:
+https://zenodo.org/record/5242952/files/SetC_Flavopiridol_005_crop.nd2?download=1
+https://zenodo.org/record/5242952/files/SetD_Flavopiridol_008_crop.nd2?download=1
 
 # Acknowledgments
 
