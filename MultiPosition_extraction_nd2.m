@@ -1,26 +1,24 @@
 clear all
 
-plotFlag = false;
+plotFlag = true;
 
 sourceDirectories = { ...
-	'./S2P_S5P_Controls_9Aug2021/ABComboA_Ctrl/',...
-	'./S2P_S5P_Controls_9Aug2021/ABComboA_FP/',...
-	'./S2P_S5P_Controls_9Aug2021/ABComboB_Ctrl/',...
-	'./S2P_S5P_Controls_9Aug2021/ABComboB_FP/',...
+	'./ImageData/Ctrl/',...
+	'./ImageData/FP/',...
 	};
 extractTargetFolder = 'ExtractedStacks';
-condInds = (1:4)';
+condInds = (1:2)';
 condLabels = {...
-	'ComboA_Ctrl','ComboA_FP','ComboB_Ctrl','ComboB_FP'...
+	'Ctrl','FP'
 	};
 maxNumSeries = Inf;
 
 skipList = []; % Directories to skip, for example if already done
 % Leave empty array [] if all directories shoudl be processed.
 
-useChannel_inds = [2,4]; %Ser5P,Ser2P
+useChannel_inds = [3,2,1]; %Ser5P, Ser2P, DNA
 numChannels = numel(useChannel_inds);
-scaleChannels = {[-Inf,Inf],[-Inf,Inf]};
+scaleChannels = {[-Inf,Inf],[-Inf,Inf],[-Inf,Inf]};
 
 numDirs = numel(sourceDirectories);
 

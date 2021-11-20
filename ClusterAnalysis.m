@@ -2,11 +2,10 @@ clear all
 
 % Specify the directory that contains the extraced files from the last
 % step, where you extracted from the raw files obtained from the microscope
-sourceDirectory = './ExtractedStacks/Cond_1/';
 sourceDirectory = './ExtractedStacks/**/';
 
 % Channels for segmentation
-NucSegChannel = 1; % Channel used to detect nuclei
+NucSegChannel = 3; % Channel used to detect nuclei
 S5P_SegChannel = 1; % Channel used to detect Pol II S5P clusters
 S2P_SegChannel = 2; % Channel used to detect Pool II S2P clusters
 
@@ -14,29 +13,32 @@ S2P_SegChannel = 2; % Channel used to detect Pool II S2P clusters
 ImgSquareSize = 0; % pixels for cut-out images, set 0 fr no images
 
 % Target channels for intensity quantification, applied for all objects
-quantChannels = [1,2];
-quantBlurSigma = [0,0];
+quantChannels = [1,2,3];
+quantBlurSigma = [0,0,0];
 numQuantChannels = numel(quantChannels);
 
 % Which image channels to store in example images
 storeImgChannels = [];%[1,2];
 numStoreChannels = numel(storeImgChannels);
 
-nuc_segBlurSigma_small = 1.0; % in microns
-nuc_segBlurSigma_large = 10; % in microns
+nuc_segBlurSigma_nucleus = 3.0; % in microns
+nuc_segBlurSigma_BG_removal = 10; % in microns
 
-S5P_segBlurSigma_small = 0.01;
-S5P_segBlurSigma_large = 3.0;
-S5P_seg_numStdDev = 2.0;
+S5P_segBlurSigma_object = 0.001; % in microns
+S5P_segBlurSigma_BG_removal = 0.1; % in microns
+S5P_seg_numStdDev = 1.5;
 
-S2P_segBlurSigma_small = 0.01; % in microns
-S2P_segBlurSigma_large = 5; % in microns
-S2P_seg_numStdDev = 6; % number of standard deviations in robust threshold
+% Cluster connection range:
+S5P_DBSCAN_epsilon = 1.0; % in microns, choose 0 for no clustering
+
+S2P_segBlurSigma_object = 0.03; % in microns
+S2P_segBlurSigma_BG_removal = 0.1; % in microns
+S2P_seg_numStdDev = 2.25; % number of standard deviations in robust threshold
 
 % Minimum volume of nuclei, typical ranges for a full nucieus 10-100 cubic
 % microns of volume, so set a cut-off oof 10 or 30 or so
 Nuc_min_vol = 10; % cubic microns
-Nuc_min_sol = 0.7; % to ensure round nuclei
+Nuc_min_sol = 0.8; % to ensure round nuclei
 
 % Inner and outer extension of a nuclear masks to cover cytoplasm
 cytoMask_extension = 1.5; % in microns
@@ -112,12 +114,13 @@ parfor ff = 1:numFiles
 	% Nuclei segmentation
 	segImg = imgStack{NucSegChannel};
 	segImg = ...
-		+ imgaussfilt(segImg,nuc_segBlurSigma_small./pixelSize) ...
-		- imgaussfilt(segImg,nuc_segBlurSigma_large./pixelSize);
+		+ imgaussfilt(segImg,nuc_segBlurSigma_nucleus./pixelSize) ...
+		- imgaussfilt(segImg,nuc_segBlurSigma_BG_removal./pixelSize);
 
 	[bin_counts,bin_centers] = hist(segImg(:),1000);
 	[nuc_seg_thresh,~] = otsuLimit(bin_centers,bin_counts,[0,Inf]);
 	NucSegMask = segImg>1.0.*nuc_seg_thresh;
+    NucSegMask = imfill(NucSegMask,18,'holes');
 	
 	subplot(1,3,1)
 	imagesc(squeeze(imgStack{NucSegChannel}(:,:,ceil(imgSize(3)./2))))
@@ -133,7 +136,7 @@ parfor ff = 1:numFiles
 	
 % Uncomment the following two lines, and remove the par in parfor above, if
 % you want to check the extracted images one by one
-%   fprintf('File name: %s',thisFilePath)
+%   fprintf('File name: %s\n',thisFilePath)
 % 	waitforbuttonpress
 	
 	% --- Connected component segmentation of nuclei
@@ -163,7 +166,7 @@ parfor ff = 1:numFiles
 		quantProps = regionprops3(comps,quantImg,...
 			'MeanIntensity','VoxelIdxList');
 		nuc_intCell{ff}{qq} = [quantProps.MeanIntensity];
-		cyto_intCell{ff}{qq} = zeros(1,numNuclei);
+		cyto_intCell{ff}{qq} = zeros(numNuclei,1);
 		for nn = 1:numNuclei
 			cytoMask = false(size(quantImg));
 			cytoMask(quantProps.VoxelIdxList{nn}) = true;
@@ -229,11 +232,11 @@ parfor ff = 1:numFiles
 				boxArray(3)+0.5:boxArray(3)+boxArray(6)-0.5);
 			
 			S5P_subImage = ...
-				+ imgaussfilt(S5P_subImage,S5P_segBlurSigma_small./pixelSize) ...
-				- imgaussfilt(S5P_subImage,S5P_segBlurSigma_large./pixelSize);
+				+ imgaussfilt(S5P_subImage,S5P_segBlurSigma_object./pixelSize) ...
+				- imgaussfilt(S5P_subImage,S5P_segBlurSigma_BG_removal./pixelSize);
 			S2P_subImage = ...
-				+ imgaussfilt(S2P_subImage,S2P_segBlurSigma_small./pixelSize) ...
-				- imgaussfilt(S2P_subImage,S2P_segBlurSigma_large./pixelSize);
+				+ imgaussfilt(S2P_subImage,S2P_segBlurSigma_object./pixelSize) ...
+				- imgaussfilt(S2P_subImage,S2P_segBlurSigma_BG_removal./pixelSize);
 			
 			NucMask = false(imgSize);
 			NucMask(props.VoxelIdxList{nn}) = true;
@@ -260,20 +263,6 @@ parfor ff = 1:numFiles
 				subImgSize(3)=1;
 			end
 			
-			subplot(2,2,1)
-			imagesc(squeeze(max(S5P_subImage,[],3)))
-			axis tight equal
-			subplot(2,2,2)
-			imagesc(squeeze(max(S2P_subImage,[],3)))
-			axis tight equal
-			subplot(2,2,3)
-			imagesc(squeeze(max(S5P_mask,[],3)))
-			axis tight equal
-			subplot(2,2,4)
-			imagesc(squeeze(max(S2P_mask,[],3)))
-			axis tight equal
-			% 		waitforbuttonpress
-			
 			% For storage of example images
 			if numStoreChannels > 0
 				store_subImages = cell(1,numStoreChannels);
@@ -291,7 +280,7 @@ parfor ff = 1:numFiles
 			S5P_comps.NumObjects = sum(S5P_numPxls>minPixels);
 			S5P_comps.PixelIdxList = S5P_comps.PixelIdxList(S5P_numPxls>minPixels);
 			S5P_numPxls = cellfun(@(elmt)numel(elmt),S5P_comps.PixelIdxList);
-			
+			                        
 			S2P_comps = bwconncomp(S2P_mask,18);
 			S2P_numPxls = cellfun(@(elmt)numel(elmt),S2P_comps.PixelIdxList);
 			minPixels = S2P_minVol./(pixelSize.^2)./zStepSize;
@@ -299,13 +288,69 @@ parfor ff = 1:numFiles
 			S2P_comps.PixelIdxList = S2P_comps.PixelIdxList(S2P_numPxls>minPixels);
 			S2P_numPxls = cellfun(@(elmt)numel(elmt),S2P_comps.PixelIdxList);
 			
-			
 			if S5P_comps.NumObjects>0 && S2P_comps.NumObjects>0
+                % This if-clause still needs to be split into the two
+                % separate object classes. There is no reason to not
+                % analyze one object class because the other one is not
+                % detectable
 				
-				S2P_props = regionprops3(S2P_comps,S2P_subImage,...
-					'Volume','Solidity',...
-					'Centroid','Image','BoundingBox');
-				
+                % DBSCAN clustering of labeled regions
+                if S5P_DBSCAN_epsilon > 0
+                    S5P_props = regionprops3(S5P_comps,S5P_subImage,...
+                        'Centroid');
+                    centroid_coords = ...
+                        S5P_props.Centroid.*[pixelSize,pixelSize,zStepSize];
+                    dbscan_inds = ...
+                        dbscan(centroid_coords,S5P_DBSCAN_epsilon,1);
+                    
+                    unique_inds = unique(dbscan_inds);
+                    num_inds = numel(unique_inds);
+                    updated_comps = S5P_comps;
+                    updated_comps.NumObjects = num_inds;
+                    updated_comps.PixelIdxList = cell(1,num_inds);
+                    for ii = 1:num_inds
+                        updated_comps.PixelIdxList{ii} = ...
+                            sort(vertcat(S5P_comps.PixelIdxList{...
+                            dbscan_inds==unique_inds(ii)} ...
+                            ));
+                    end
+                    S5P_comps = updated_comps;
+                end
+                
+                LL = labelmatrix(S5P_comps);
+                
+                subplot(2,2,1)
+                centerPlaneInd = round(boxArray(6).*0.5);
+                % 			imagesc(squeeze(max(S5P_subImage,[],3)))
+                imagesc(squeeze(S5P_subImage(:,:,centerPlaneInd)))
+                axis tight equal
+                set(gca,'Colormap',gray)
+
+                subplot(2,2,2)
+                % 			imagesc(squeeze(max(S2P_subImage,[],3)))
+                imagesc(squeeze(S2P_subImage(:,:,centerPlaneInd)))
+                axis tight equal
+                set(gca,'Colormap',gray)
+                
+                subplot(2,2,3)
+                % 			imagesc(squeeze(max(S5P_mask,[],3)))
+                imagesc(squeeze(LL(:,:,centerPlaneInd)))
+                axis tight equal
+                set(gca,'Colormap',lines)
+
+                subplot(2,2,4)
+                % 			imagesc(squeeze(max(S2P_mask,[],3)))
+                imagesc(squeeze(S2P_mask(:,:,centerPlaneInd)))
+                axis tight equal
+                set(gca,'Colormap',gray)
+                
+                % Uncomment this waitforbuttonpress command to see the
+                % segmentation results for the two types of foci
+%                 waitforbuttonpress
+                
+                
+                
+                
 				S5P_props = regionprops3(S5P_comps,S5P_subImage,...
 					'Volume','Solidity',...
 					'Centroid','Image','BoundingBox');
@@ -316,6 +361,10 @@ parfor ff = 1:numFiles
 				S5P_Centroid_array = ...
 					S5P_props.Centroid.*[pixelSize,pixelSize,zStepSize];
 				
+                S2P_props = regionprops3(S2P_comps,S2P_subImage,...
+                    'Volume','Solidity',...
+                    'Centroid','Image','BoundingBox');
+                
 				S2P_Volume_array = ...
 					[S2P_props.Volume].*pixelSize.^2.*zStepSize;
 				S2P_Solidity_array = [S2P_props.Solidity];
@@ -636,13 +685,13 @@ for cc = 1:numConds
 			@(ind)nuc_intCell{ind}{qq},....
 			find(fileIndsCell{cc}),...
 			'UniformOutput',false));
-		sortedNucIntCell{qq}{cc} = horzcat(sortedNucIntCell{qq}{cc}{:})';
+		sortedNucIntCell{qq}{cc} = vertcat(sortedNucIntCell{qq}{cc}{:})';
 		
 		sortedCytoIntCell{qq}{cc} = vertcat(arrayfun(...
 			@(ind)cyto_intCell{ind}{qq},....
 			find(fileIndsCell{cc}),...
 			'UniformOutput',false));
-		sortedCytoIntCell{qq}{cc} = horzcat(sortedCytoIntCell{qq}{cc}{:})';
+		sortedCytoIntCell{qq}{cc} = vertcat(sortedCytoIntCell{qq}{cc}{:})';
 		
 		sortedS5PIntCell{qq}{cc} = vertcat(arrayfun(...
 			@(ind)S5P_intCell{ind}{qq},....
@@ -680,7 +729,7 @@ Sol_CI = zeros(2,numConds);
 
 for cc = 1:numConds
 	
-	Vol_threshold = 0.01;0.25;	
+	Vol_threshold = 0.2;0.01;0.25;	
 	S5P_threshold = 0;1.2;
 	inclInds = ...
 		sortedS5PVolCell{cc}>=Vol_threshold ...
@@ -708,23 +757,28 @@ for cc = 1:numConds
 	numPoints = numel(S5P_S2P_vals);
 	
 	n_boot = 200;
-	S5P_median(cc) = median(Nuc_S5P_vals);
+	
+    S5P_median(cc) = median(Nuc_S5P_vals);
 	S5P_CI(:,cc) = bootci(n_boot,@median,Nuc_S5P_vals);
 	S2P_median(cc) = median(Nuc_S2P_vals);
 	S2P_CI(:,cc) = bootci(n_boot,@median,Nuc_S2P_vals);
-% 	S5P_median(cc) = median(S5P_S5P_vals);
-% 	S5P_CI(:,cc) = bootci(n_boot,@median,S5P_S5P_vals);
-% 	S2P_median(cc) = median(S5P_S2P_vals);
-% 	S2P_CI(:,cc) = bootci(n_boot,@median,S5P_S2P_vals);
-% 	S5P_median(cc) = median(S2P_S5P_vals);
+	
+    S5P_median(cc) = median(S5P_S5P_vals);
+	S5P_CI(:,cc) = bootci(n_boot,@median,S5P_S5P_vals);
+	S2P_median(cc) = median(S5P_S2P_vals);
+	S2P_CI(:,cc) = bootci(n_boot,@median,S5P_S2P_vals);
+	
+%     S5P_median(cc) = median(S2P_S5P_vals);
 % 	S5P_CI(:,cc) = bootci(n_boot,@median,S2P_S5P_vals);
 % 	S2P_median(cc) = median(S2P_S2P_vals);
 % 	S2P_CI(:,cc) = bootci(n_boot,@median,S2P_S2P_vals);
-	Vol_median(cc) = median(S5P_Vol_vals);
+	
+    Vol_median(cc) = median(S5P_Vol_vals);
 	Vol_CI(:,cc) = bootci(n_boot,@median,S5P_Vol_vals);
 	Elo_median(cc) = median(S5P_Elo_vals);
 	Elo_CI(:,cc) = bootci(n_boot,@median,S5P_Elo_vals);
-	Sol_median(cc) = median(S5P_Sol_vals);
+	
+    Sol_median(cc) = median(S5P_Sol_vals);
 	Sol_CI(:,cc) = bootci(n_boot,@median,S5P_Sol_vals);
 	Num_median(cc) = median(S5P_Num_vals);
 	Num_CI(:,cc) = bootci(n_boot,@median,S5P_Num_vals);
@@ -744,18 +798,18 @@ for cc = 1:numConds
 	
 end
 
-%% plot overview
+% plot overview
 
 figure(1)
 clf
 
-datasetInds = {[1,2],[3,4]};
-xaxisInds = {[1,3],...
-	[2,4]};
+datasetInds = {[1],[2]};
+xaxisInds = {[1],...
+	[2]};
 numPlotSets = numel(xaxisInds);
 setSymbols = {'ko','rs'};
 setFaceColors = {[0,0,0],[1,0,0]};
-setNames = {'AB combination 1','AB combination 2'};
+setNames = {'Control','Flavopiridol'};
 
 numLabels = sum(cellfun(@(elmt)numel(elmt),xaxisInds));
 labelCallInds = [xaxisInds{:}];
@@ -770,7 +824,8 @@ for pp = 1:numPlotSets
 	hold on
 	
 	set(gca,'XTick',1:numLabels,...
-		'XTickLabels',sortedCondNames(labelCallInds))
+		'XTickLabels',sortedCondNames(labelCallInds),...
+        'XLim',[0.5,numLabels+0.5])
 	xlabel('')
 	ylabel('Pol II Ser5P Int.')
 	xtickangle(30)
@@ -782,7 +837,8 @@ for pp = 1:numPlotSets
 		setSymbols{pp},'MarkerFaceColor',setFaceColors{pp})
 	hold on
 	set(gca,'XTick',1:numLabels,...
-		'XTickLabels',sortedCondNames(labelCallInds))
+		'XTickLabels',sortedCondNames(labelCallInds),...
+        'XLim',[0.5,numLabels+0.5])
 	xlabel('')
 	ylabel('Pol II Ser2P Int.')
 	xtickangle(30)
@@ -794,7 +850,8 @@ for pp = 1:numPlotSets
 		setSymbols{pp},'MarkerFaceColor',setFaceColors{pp})
 	hold on
 	set(gca,'XTick',1:numLabels,...
-		'XTickLabels',sortedCondNames(labelCallInds))
+		'XTickLabels',sortedCondNames(labelCallInds),...
+        'XLim',[0.5,numLabels+0.5])
 	xlabel('')
 	ylabel('No. clusters')
 	xtickangle(30)
@@ -806,7 +863,8 @@ for pp = 1:numPlotSets
 		setSymbols{pp},'MarkerFaceColor',setFaceColors{pp})
 	hold on
 	set(gca,'XTick',1:numLabels,...
-		'XTickLabels',sortedCondNames(labelCallInds))
+		'XTickLabels',sortedCondNames(labelCallInds),...
+        'XLim',[0.5,numLabels+0.5])
 	xlabel('')
 	ylabel('Volume [\mum^3]')
 	xtickangle(30)
@@ -830,7 +888,8 @@ for pp = 1:numPlotSets
 		setSymbols{pp},'MarkerFaceColor',setFaceColors{pp})
 	hold on
 	set(gca,'XTick',1:numLabels,...
-		'XTickLabels',sortedCondNames(labelCallInds))
+		'XTickLabels',sortedCondNames(labelCallInds),...
+        'XLim',[0.5,numLabels+0.5])
 	xlabel('')
 	ylabel('Solidity')
 	xtickangle(30)
