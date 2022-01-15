@@ -101,6 +101,7 @@ S5P_volCell = cell(1,numFiles);
 S5P_solCell = cell(1,numFiles);
 S5P_eloCell = cell(1,numFiles);
 S5P_intCell = cell(1,numFiles);
+S5P_nucIntCell = cell(1,numFiles);
 S5P_centCell = cell(1,numFiles);
 S5P_imgCell = cell(1,numFiles);
 
@@ -108,6 +109,7 @@ S2P_volCell = cell(1,numFiles);
 S2P_solCell = cell(1,numFiles);
 S2P_eloCell = cell(1,numFiles);
 S2P_intCell = cell(1,numFiles);
+S2P_nucIntCell = cell(1,numFiles);
 S2P_centCell = cell(1,numFiles);
 S2P_imgCell = cell(1,numFiles);
 
@@ -256,6 +258,7 @@ parfor ff = 1:numFiles
         S5P_elongation = cell(1,numNuclei);
         S5P_centralSlices_store = cell(1,numNuclei);
         S5P_intensity = cell(numQuantChannels,numNuclei);
+        S5P_nucIntensity = cell(numQuantChannels,numNuclei);
         S5P_cent_store = cell(1,numNuclei);
         
         S2P_volume = cell(1,numNuclei);
@@ -263,6 +266,7 @@ parfor ff = 1:numFiles
         S2P_elongation = cell(1,numNuclei);
         S2P_centralSlices_store = cell(1,numNuclei);
         S2P_intensity = cell(numQuantChannels,numNuclei);
+        S2P_nucIntensity = cell(numQuantChannels,numNuclei);
         S2P_cent_store = cell(1,numNuclei);
         
         for nn = 1:numNuclei
@@ -626,6 +630,9 @@ parfor ff = 1:numFiles
                         @(vals)median(vals),S5P_quant_props.VoxelValues);
                     S5P_intensity{qq,nn} = ...
                         Quant_ClusterMedian./Quant_nucleusMedian;
+                    S5P_nucIntensity{qq,nn} = ...
+                        ones(size(S5P_intensity{qq,nn})) ...
+                        .*nuc_intCell{ff}{qq}(nn);
                     
                     S2P_quant_props = regionprops3(...
                         S2P_comps,quant_subImage,'VoxelValues');
@@ -633,6 +640,9 @@ parfor ff = 1:numFiles
                         @(vals)median(vals),S2P_quant_props.VoxelValues);
                     S2P_intensity{qq,nn} = ...
                         Quant_ClusterMedian./Quant_nucleusMedian;
+                    S2P_nucIntensity{qq,nn} = ...
+                        ones(size(S2P_intensity{qq,nn})) ...
+                        .*nuc_intCell{ff}{qq}(nn);
                     
                 end
                 
@@ -657,7 +667,9 @@ parfor ff = 1:numFiles
                 
                 for qq = 1:numQuantChannels
                     S5P_intensity{qq,nn} = [];
+                    S5P_nucIntensity{qq,nn} = [];
                     S2P_intensity{qq,nn} = [];
+                    S2P_nucIntensity{qq,nn} = [];
                 end
                 
             end
@@ -675,8 +687,10 @@ parfor ff = 1:numFiles
         S5P_imgCell{ff} = vertcat(S5P_centralSlices_store{:});
         S5P_centCell{ff} = vertcat(S5P_cent_store{:});
         S5P_intCell{ff} = cell(1,numQuantChannels);
+        S5P_nucIntCell{ff} = cell(1,numQuantChannels);
         for qq = 1:numQuantChannels
             S5P_intCell{ff}{qq} = vertcat(S5P_intensity{qq,:});
+            S5P_nucIntCell{ff}{qq} = vertcat(S5P_nucIntensity{qq,:});
         end
         
         S2P_volCell{ff} = vertcat(S2P_volume{:});
@@ -685,8 +699,10 @@ parfor ff = 1:numFiles
         S2P_imgCell{ff} = vertcat(S2P_centralSlices_store{:});
         S2P_centCell{ff} = vertcat(S2P_cent_store{:});
         S2P_intCell{ff} = cell(1,numQuantChannels);
+        S2P_nucIntCell{ff} = cell(1,numQuantChannels);
         for qq = 1:numQuantChannels
             S2P_intCell{ff}{qq} = vertcat(S2P_intensity{qq,:});
+            S2P_nucIntCell{ff}{qq} = vertcat(S2P_nucIntensity{qq,:});
         end
         
     end
@@ -713,6 +729,7 @@ S5P_eloCell = S5P_eloCell(validFileFlag);
 S5P_imgCell = S5P_imgCell(validFileFlag);
 S5P_centCell = S5P_centCell(validFileFlag);
 S5P_intCell = S5P_intCell(validFileFlag);
+S5P_nucIntCell = S5P_nucIntCell(validFileFlag);
 
 S2P_volCell = S2P_volCell(validFileFlag);
 S2P_solCell = S2P_solCell(validFileFlag);
@@ -720,6 +737,7 @@ S2P_eloCell = S2P_eloCell(validFileFlag);
 S2P_imgCell = S2P_imgCell(validFileFlag);
 S2P_centCell = S2P_centCell(validFileFlag);
 S2P_intCell = S2P_intCell(validFileFlag);
+S2P_nucIntCell = S2P_nucIntCell(validFileFlag);
 
 
 %% Sort into conditions
