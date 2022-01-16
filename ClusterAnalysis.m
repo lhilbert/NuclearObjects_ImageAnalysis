@@ -772,6 +772,7 @@ sortedS5PEloCell = cell(1,numConds);
 sortedS5PCentralSliceCell = cell(1,numConds);
 sortedS5PCentroidsCell = cell(1,numConds);
 sortedS5PIntCell = cell(1,numQuantChannels);
+sortedS5PNucIntCell = cell(1,numQuantChannels);
 
 sortedS2PNumCell = cell(1,numConds);
 sortedS2PVolCell = cell(1,numConds);
@@ -780,13 +781,16 @@ sortedS2PEloCell = cell(1,numConds);
 sortedS2PCentralSliceCell = cell(1,numConds);
 sortedS2PCentroidsCell = cell(1,numConds);
 sortedS2PIntCell = cell(1,numQuantChannels);
+sortedS2PNucIntCell = cell(1,numQuantChannels);
 
 for qq = 1:numQuantChannels
 	sortedNucIntCell{qq} = cell(1,numConds);
 	sortedCytoIntCell{qq} = cell(1,numConds);
     sortedNucStdCell{qq} = cell(1,numConds);
 	sortedS5PIntCell{qq} = cell(1,numConds);
+    sortedS5PNucIntCell{qq} = cell(1,numConds);
 	sortedS2PIntCell{qq} = cell(1,numConds);
+    sortedS2PNucIntCell{qq} = cell(1,numConds);
 end
 
 
@@ -819,6 +823,7 @@ for cc = 1:numConds
 	S5P_slices = vertcat(S5P_imgCell{fileIndsCell{cc}});
 	S5P_centroids = vertcat(S5P_centCell{fileIndsCell{cc}});
 	S5P_ints = S5P_intCell(fileIndsCell{cc});
+    S5P_nucInts = S5P_nucIntCell(fileIndsCell{cc});
     
 	sortedS5PNumCell{cc} = S5P_nums;
 	sortedS5PVolCell{cc} = S5P_vols;
@@ -838,6 +843,7 @@ for cc = 1:numConds
 	S2P_slices = vertcat(S2P_imgCell{fileIndsCell{cc}});
 	S2P_centroids = vertcat(S2P_centCell{fileIndsCell{cc}});
 	S2P_ints = S2P_intCell(fileIndsCell{cc});
+    S2P_nucInts = S2P_nucIntCell(fileIndsCell{cc});
 
 	sortedS2PNumCell{cc} = S2P_nums;
 	sortedS2PVolCell{cc} = S2P_vols;
@@ -872,13 +878,27 @@ for cc = 1:numConds
 			find(fileIndsCell{cc}),...
 			'UniformOutput',false));
 		sortedS5PIntCell{qq}{cc} = vertcat(sortedS5PIntCell{qq}{cc}{:});
-		
+
+        sortedS5PNucIntCell{qq}{cc} = vertcat(arrayfun(...
+            @(ind)S5P_nucIntCell{ind}{qq},....
+            find(fileIndsCell{cc}),...
+            'UniformOutput',false));
+        sortedS5PNucIntCell{qq}{cc} = vertcat(sortedS5PNucIntCell{qq}{cc}{:});
+
+        
 		sortedS2PIntCell{qq}{cc} = vertcat(arrayfun(...
 			@(ind)S2P_intCell{ind}{qq},....
 			find(fileIndsCell{cc}),...
 			'UniformOutput',false));
 		sortedS2PIntCell{qq}{cc} = vertcat(sortedS2PIntCell{qq}{cc}{:});
 		
+        sortedS2PNucIntCell{qq}{cc} = vertcat(arrayfun(...
+            @(ind)S2P_nucIntCell{ind}{qq},....
+            find(fileIndsCell{cc}),...
+            'UniformOutput',false));
+        sortedS2PNucIntCell{qq}{cc} = vertcat(sortedS2PNucIntCell{qq}{cc}{:});
+
+        
 	end
 	
 end
