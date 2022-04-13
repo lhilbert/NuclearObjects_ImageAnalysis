@@ -6,7 +6,7 @@ Currently, the repository contains the scripts for extracting and analyzing Niko
 
 # Requirements
 
-You will need MatLab installed on your computer. You will also need the Image Processing toolbox. The Parallel toolbox is helpful, as it can speed up your image processing.
+You will need MatLab installed on your computer. You will also need the **Image Processing toolbox** and the **Stats toolbox**. The **Parallel toolbox** is helpful, as it can speed up your image processing.
 
 You also first have to download bfmatlab, and add it to your MatLab path.
 
