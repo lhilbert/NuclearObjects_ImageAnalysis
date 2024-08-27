@@ -3,7 +3,7 @@ clear all
 % Specify the directory that contains the extraced files from the last
 % step, where you extracted from the raw files obtained from the microscope
 sourceDirectory = './ExtractedStacks/**/';
-% sourceDirectory = './ExtractedStacks/Cond_15/';
+sourceDirectory = '/Users/lennarthilbert/Documents/ActinPerturbation_OPExtractedData/ExtractedStacks/**/';
 
 % --- file read and display procedure begins here
 

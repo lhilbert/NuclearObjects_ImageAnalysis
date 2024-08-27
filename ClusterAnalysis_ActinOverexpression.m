@@ -2,13 +2,13 @@ clear all
 
 % Specify the directory that contains the extraced files from the last
 % step, where you extracted from the raw files obtained from the microscope
-sourceDirectory = './ExtractedStacks/**/';
-% sourceDirectory = './ExtractedStacks/Cond_15/';
+% sourceDirectory = '/Users/lennarthilbert/Documents/ActinPerturbation_OPExtractedData/ExtractedStacks/Cond_3/**/';
+sourceDirectory = '/Users/lennarthilbert/Documents/ActinPerturbation_OPExtractedData/ExtractedStacks/**/';
 
 % Channels for segmentation
-NucSegChannel = 1; % Channel used to detect nuclei
-S5P_SegChannel = 1; % Channel used to detect Pol II S5P clusters
-S2P_SegChannel = 2; % Channel used to detect Pol II S2P clusters
+NucSegChannel = 2; % Channel used to detect nuclei
+S5P_SegChannel = 2; % Channel used to detect Pol II S5P clusters
+S2P_SegChannel = 1; % Channel used to detect Pol II S2P clusters
 
 % Save images of the clusters
 ImgSquareExtension = 0; % pixels for cut-out image extension, set 0 for no images
@@ -21,7 +21,7 @@ quantChannels = [1,2];
 quantBlurSigma = [0,0.15];
 numQuantChannels = numel(quantChannels);
 
-nuc_segBlurSigma_nucleus = 1.0; % in microns
+nuc_segBlurSigma_nucleus = 0.6; % in microns
 nuc_segBlurSigma_BG_removal = 10; % in microns
 nuc_segErosion = 0.5; % range of erosion (in microns) to avoid margin effects
 % Use topological operation to fill holes in the nuclei segmentation masks?
@@ -33,17 +33,17 @@ fillHolesFlag = 1;
 
 % Minimum volume of nuclei, typical ranges for a full nucieus 10-100 cubic
 % microns of volume, so set a cut-off oof 10 or 30 or so
-Nuc_min_vol = 10; % cubic microns
-Nuc_min_sol = 0.8; % to ensure round nuclei
+Nuc_min_vol = 40; % cubic microns
+Nuc_min_sol = 0.7; % to ensure round nuclei
 Nuc_min_CoV = 0.0; % to ensure transcriptionally active foci
 
 % Inner and outer extension of a nuclear masks to cover cytoplasm
 cytoMask_extension = 1.5; % in microns
 cytoMask_distance = 1.0; % in microns
 
-S5P_segBlurSigma_object = 0.06; % in microns
-S5P_segBlurSigma_BG_removal = 0.1; % in microns
-S5P_seg_numStdDev = 2.0;
+S5P_segBlurSigma_object = 0.0; % in microns
+S5P_segBlurSigma_BG_removal = 0.5; % in microns
+S5P_seg_numStdDev = 3.0;
 
 % Cluster connection range:
 S5P_DBSCAN_epsilon = 0.5; % in microns, choose 0 for no clustering
@@ -929,7 +929,6 @@ for cc = 1:numPlotSets
 	sortedS2PCentralSliceCell{cc} = S2P_slices;
 	sortedS2PCentroidsCell{cc} = S2P_centroids;
     sortedS2PNucVolCell{cc} = vertcat(S2P_nucVols{:});
-    sortedS2PNucClustVolCell{cc} = horzcat(S2P_nucClustVols{:})';
 	
 	for qq = 1:numQuantChannels
 		
@@ -986,20 +985,22 @@ end
 Vol_threshold = 0.1;
 
 % Define which number of data set corresponds to which condition
-datasetInds = {...
-    [11,5,9,1,3,7,11+1,5+1,9+1,1+1,3+1,7+1],...
-    [11+14,5+14,9+14,1+14,3+14,7+14,11+15,5+15,9+15,1+15,3+15,7+15]};
 
 datasetNames = {'Uninj.','BFP','WT-actin','R62D-actin'};
 
-refDatasetInds = [...
-    1,2,1,2,1,2,1,2,1,2,1,2,...
-    15,16,15,16,15,16,15,16,15,16,15,16];
+% datasetInds = {...
+%     [11,5,9,1,3,7,11+1,5+1,9+1,1+1,3+1,7+1],...
+%     [11+14,5+14,9+14,1+14,3+14,7+14,11+15,5+15,9+15,1+15,3+15,7+15]};
+
+datasetInds = {...
+    [],...
+    [],...
+    [],...
+    []};
 
 targets = {...
     [1,2,3,4,5,6,1,2,3,4,5,6],...
     [1,2,3,4,5,6,1,2,3,4,5,6]};
-targetNames = {'Ctrl 24 h','3 h','6 h','12 h','24 h','48 h'};
 
 numPlots = numel(datasetInds);
 
