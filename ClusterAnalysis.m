@@ -3,11 +3,12 @@ clear all
 % Specify the directory that contains the extraced files from the last
 % step, where you extracted from the raw files obtained from the microscope
 sourceDirectory = './ExtractedStacks/**/';
+% sourceDirectory = './ExtractedStacks/Cond_15/';
 
 % Channels for segmentation
-NucSegChannel = 3; % Channel used to detect nuclei
+NucSegChannel = 1; % Channel used to detect nuclei
 S5P_SegChannel = 1; % Channel used to detect Pol II S5P clusters
-S2P_SegChannel = 2; % Channel used to detect Pool II S2P clusters
+S2P_SegChannel = 2; % Channel used to detect Pol II S2P clusters
 
 % Save images of the clusters
 ImgSquareExtension = 0; % pixels for cut-out image extension, set 0 for no images
@@ -16,13 +17,13 @@ storeImgChannels = [];
 numStoreChannels = numel(storeImgChannels);
 
 % Target channels for intensity quantification, applied for all objects
-quantChannels = [1,2,3];
-quantBlurSigma = [0,0,0];
+quantChannels = [1,2];
+quantBlurSigma = [0,0.15];
 numQuantChannels = numel(quantChannels);
 
-nuc_segBlurSigma_nucleus = 3.0; % in microns
+nuc_segBlurSigma_nucleus = 1.0; % in microns
 nuc_segBlurSigma_BG_removal = 10; % in microns
-nuc_segErosion = 1.5; % range of erosion (in microns) to avoid margin effects
+nuc_segErosion = 0.5; % range of erosion (in microns) to avoid margin effects
 % Use topological operation to fill holes in the nuclei segmentation masks?
 % Default: 3D hole-filing, set flag to value 1
 % 2D hole-filling, usefil if the stack cuts nuclei on top or bottom, so
@@ -40,23 +41,24 @@ Nuc_min_CoV = 0.0; % to ensure transcriptionally active foci
 cytoMask_extension = 1.5; % in microns
 cytoMask_distance = 1.0; % in microns
 
-S5P_segBlurSigma_object = 0.001; % in microns
+S5P_segBlurSigma_object = 0.06; % in microns
 S5P_segBlurSigma_BG_removal = 0.1; % in microns
-S5P_seg_numStdDev = 1.5;
+S5P_seg_numStdDev = 2.0;
 
 % Cluster connection range:
-S5P_DBSCAN_epsilon = 0.65; % in microns, choose 0 for no clustering
+S5P_DBSCAN_epsilon = 0.5; % in microns, choose 0 for no clustering
 
 S2P_segBlurSigma_object = 0.03; % in microns
 S2P_segBlurSigma_BG_removal = 0.1; % in microns
 S2P_seg_numStdDev = 2.25; % number of standard deviations in robust threshold
 
 % Minimum volumes for objects inside the nuclei
-S5P_minVol = 0.03; % cubic microns
+S5P_minVol = 0.005; % cubic microns
 S2P_minVol = 0.005; % cubic microns
 
 % end of analysis parameter section, do not change anything else in
 % this section, all necessary parameters are listed above
+
 
 % --- analysis procedure begins here
 
@@ -84,11 +86,14 @@ validFileFlag = false(1,numFiles);
 
 % Variables to store properties of nuclei
 numNuclei_vec = zeros(1,numFiles);
+nuc_volCell = cell(1,numFiles);
 nuc_intCell = cell(1,numFiles);
 cyto_intCell = cell(1,numFiles);
 nuc_stdCell = cell(1,numFiles);
 nuc_medianVolCell = cell(1,numFiles);
 perNuc_countCell = cell(1,numFiles);
+perNuc_volCell = cell(1,numFiles);
+
 
 % Variable to store the pixel sizes
 S5P_xyVoxelSizeCell = cell(1,numFiles);
@@ -101,17 +106,22 @@ S5P_volCell = cell(1,numFiles);
 S5P_solCell = cell(1,numFiles);
 S5P_eloCell = cell(1,numFiles);
 S5P_intCell = cell(1,numFiles);
-S5P_nucIntCell = cell(1,numFiles);
 S5P_centCell = cell(1,numFiles);
 S5P_imgCell = cell(1,numFiles);
+S5P_nucIntCell = cell(1,numFiles);
+S5P_nucVolCell = cell(1,numFiles);
+S5P_nucClustVolCell = cell(1,numFiles);
+
 
 S2P_volCell = cell(1,numFiles);
 S2P_solCell = cell(1,numFiles);
 S2P_eloCell = cell(1,numFiles);
 S2P_intCell = cell(1,numFiles);
-S2P_nucIntCell = cell(1,numFiles);
 S2P_centCell = cell(1,numFiles);
 S2P_imgCell = cell(1,numFiles);
+S2P_nucIntCell = cell(1,numFiles);
+S2P_nucVolCell = cell(1,numFiles);
+S2P_nucClustVolCell = cell(1,numFiles);
 
 parfor ff = 1:numFiles
 	
@@ -185,16 +195,18 @@ parfor ff = 1:numFiles
 	props = regionprops3(comps,imgStack{NucSegChannel},...
 		'Solidity','VoxelValues');
 	
-	Solidity_array = [props.Solidity];
-	CoV_array = ...
-        cellfun(@(vals)std(vals(:))./mean(vals(:)),...
-        props.VoxelValues);
-    inclNucInds = Solidity_array>=Nuc_min_sol ...
-        & CoV_array>=Nuc_min_CoV;
-	comps.NumObjects = sum(Solidity_array>=Nuc_min_sol);
-	comps.PixelIdxList = comps.PixelIdxList(Solidity_array>=Nuc_min_sol);
-	numPxls = cellfun(@(elmt)numel(elmt),comps.PixelIdxList);
-	
+    if comps.NumObjects>0
+        Solidity_array = [props.Solidity];
+        CoV_array = ...
+            cellfun(@(vals)std(vals(:))./mean(vals(:)),...
+            props.VoxelValues);
+        inclNucInds = Solidity_array>=Nuc_min_sol ...
+            & CoV_array>=Nuc_min_CoV;
+        comps.NumObjects = sum(Solidity_array>=Nuc_min_sol);
+        comps.PixelIdxList = comps.PixelIdxList(Solidity_array>=Nuc_min_sol);
+        numPxls = cellfun(@(elmt)numel(elmt),comps.PixelIdxList);
+    end
+    
 	numNuclei = comps.NumObjects;
 	numNuclei_vec(ff) = numNuclei;
 	
@@ -236,15 +248,19 @@ parfor ff = 1:numFiles
         Volume_array = [props.Volume].*pixelSize.^2.*zStepSize;
         Intensity_array = cellfun(@(vals)median(vals),props.VoxelValues);
         Solidity_array = [props.Solidity];
+
+        nuc_volCell{ff} = Volume_array;
         
         
         % --- For each nucleus, get objects from the different channels
         
         nuc_medianVolCell{ff} = cell(1,2);
         perNuc_countCell{ff} = cell(1,2);
+        perNuc_volCell{ff} = cell(1,2);
         for qq = 1:2
             nuc_medianVolCell{ff}{qq} = zeros(numNuclei,1);
             perNuc_countCell{ff}{qq} = zeros(numNuclei,1);
+            perNuc_volCell{ff}{qq} = cell(numNuclei,1);
         end
         
         S5P_xyVoxelSize = cell(1,numNuclei);
@@ -258,16 +274,20 @@ parfor ff = 1:numFiles
         S5P_elongation = cell(1,numNuclei);
         S5P_centralSlices_store = cell(1,numNuclei);
         S5P_intensity = cell(numQuantChannels,numNuclei);
-        S5P_nucIntensity = cell(numQuantChannels,numNuclei);
         S5P_cent_store = cell(1,numNuclei);
+        S5P_nucIntensity = cell(numQuantChannels,numNuclei);
+        S5P_nucVolume = cell(1,numNuclei);
+        S5P_nucClustVolume = cell(1,numNuclei);
         
         S2P_volume = cell(1,numNuclei);
         S2P_solidity = cell(1,numNuclei);
         S2P_elongation = cell(1,numNuclei);
         S2P_centralSlices_store = cell(1,numNuclei);
         S2P_intensity = cell(numQuantChannels,numNuclei);
-        S2P_nucIntensity = cell(numQuantChannels,numNuclei);
         S2P_cent_store = cell(1,numNuclei);
+        S2P_nucIntensity = cell(numQuantChannels,numNuclei);
+        S2P_nucVolume = cell(1,numNuclei);
+        S2P_nucClustVolume = cell(1,numNuclei);
         
         for nn = 1:numNuclei
             
@@ -427,8 +447,11 @@ parfor ff = 1:numFiles
                 S2P_Centroid_array = ...
                     S2P_props.Centroid.*[pixelSize,pixelSize,zStepSize];
                 
-                perNuc_countCell{ff}{1}(nn) = numel(S5P_Centroid_array);
-                perNuc_countCell{ff}{2}(nn) = numel(S2P_Centroid_array);
+                perNuc_countCell{ff}{1}(nn) = numel(S5P_Volume_array);
+                perNuc_countCell{ff}{2}(nn) = numel(S2P_Volume_array);
+
+                perNuc_volCell{ff}{1}{nn} = S5P_Volume_array;
+                perNuc_volCell{ff}{2}{nn} = S2P_Volume_array;
                 
                 nuc_medianVolCell{ff}{1}(nn) = median(S5P_Volume_array);
                 nuc_medianVolCell{ff}{2}(nn) = median(S2P_Volume_array);
@@ -436,12 +459,12 @@ parfor ff = 1:numFiles
                 S5P_xyVoxelSize{nn} = ...
                     pixelSize.*ones(size(S5P_Volume_array));
                 S5P_zVoxelSize{nn} = ...
-                    zStepSize.*ones(size(S5P_Volume_array))
+                    zStepSize.*ones(size(S5P_Volume_array));
                 
                 S2P_xyVoxelSize{nn} = ...
                     pixelSize.*ones(size(S2P_Volume_array));
                 S2P_zVoxelSize{nn} = ...
-                    zStepSize.*ones(size(S2P_Volume_array))
+                    zStepSize.*ones(size(S2P_Volume_array));
                 
                 
                 % --- get cluster central plane and elongation in-plane
@@ -527,7 +550,15 @@ parfor ff = 1:numFiles
                 S5P_cent_store{nn} = S5P_Centroid_array;
                 S5P_centralSlices_store{nn} = S5P_Slices_cell;
                 
-                
+                S5P_nucVolume{nn} = ...
+                        ones(size(S5P_Volume_array)) ...
+                        .*Volume_array(nn);
+                S5P_nucClustVolume{nn} = ...
+                    cell(size(S5P_Volume_array));
+                for object_nn = 1:numel(S5P_Volume_array)
+                    S5P_nucClustVolume{nn}{object_nn} = ...
+                        S5P_Volume_array;
+                end
                 
                 S2P_Elongation_array = ...
                     zeros(size(S2P_Solidity_array));
@@ -606,6 +637,15 @@ parfor ff = 1:numFiles
                 S2P_cent_store{nn} = S2P_Centroid_array;
                 S2P_centralSlices_store{nn} = S2P_Slices_cell;
                 
+                S2P_nucVolume{nn} = ...
+                        ones(size(S2P_Volume_array)) ...
+                        .*Volume_array(nn);
+                S2P_nucClustVolume{nn} = ...
+                    cell(size(S2P_Volume_array));
+                for object_nn = 1:numel(S2P_Volume_array)
+                    S2P_nucClustVolume{nn}{object_nn} = ...
+                        S2P_Volume_array;
+                end
                 
                 % --- quantification for all target channels
                 for qq = 1:numQuantChannels
@@ -658,12 +698,17 @@ parfor ff = 1:numFiles
                 S5P_elongation{nn} = [];
                 S5P_centralSlices_store{nn} = {};
                 S5P_cent_store{nn} = [];
-                
+                S5P_nucVolume{nn} = [];
+                S5P_nucClustVolume{nn} = {};
+
                 S2P_volume{nn} = [];
                 S2P_solidity{nn} = [];
                 S2P_elongation{nn} = [];
                 S2P_centralSlices_store{nn} = {};
                 S2P_cent_store{nn} = [];
+                S2P_nucVolume{nn} = [];
+                S2P_nucClustVolume{nn} = {};
+
                 
                 for qq = 1:numQuantChannels
                     S5P_intensity{qq,nn} = [];
@@ -692,6 +737,9 @@ parfor ff = 1:numFiles
             S5P_intCell{ff}{qq} = vertcat(S5P_intensity{qq,:});
             S5P_nucIntCell{ff}{qq} = vertcat(S5P_nucIntensity{qq,:});
         end
+        S5P_nucVolCell{ff} = vertcat(S5P_nucVolume);
+        S5P_nucClustVolCell{ff} = vertcat(S5P_nucClustVolume);
+
         
         S2P_volCell{ff} = vertcat(S2P_volume{:});
         S2P_solCell{ff} = vertcat(S2P_solidity{:});
@@ -704,6 +752,9 @@ parfor ff = 1:numFiles
             S2P_intCell{ff}{qq} = vertcat(S2P_intensity{qq,:});
             S2P_nucIntCell{ff}{qq} = vertcat(S2P_nucIntensity{qq,:});
         end
+        S2P_nucVolCell{ff} = vertcat(S2P_nucVolume);
+        S2P_nucClustVolCell{ff} = vertcat(S2P_nucClustVolume);
+
         
     end
        
@@ -712,11 +763,13 @@ end
 % Retain only files that returned nuclei
 
 condNames = condNames(validFileFlag);
+nuc_volCell = nuc_volCell(validFileFlag);
 nuc_intCell = nuc_intCell(validFileFlag);
 cyto_intCell = cyto_intCell(validFileFlag);
 nuc_stdCell = nuc_stdCell(validFileFlag);
 nuc_medianVolCell = nuc_medianVolCell(validFileFlag);
 perNuc_countCell = perNuc_countCell(validFileFlag);
+perNuc_volumeCell = perNuc_volCell(validFileFlag);
 
 S5P_xyVoxelSizeCell = S5P_xyVoxelSizeCell(validFileFlag);
 S5P_zVoxelSizeCell = S5P_zVoxelSizeCell(validFileFlag);
@@ -730,6 +783,8 @@ S5P_imgCell = S5P_imgCell(validFileFlag);
 S5P_centCell = S5P_centCell(validFileFlag);
 S5P_intCell = S5P_intCell(validFileFlag);
 S5P_nucIntCell = S5P_nucIntCell(validFileFlag);
+S5P_nucClustVolCell = S5P_nucClustVolCell(validFileFlag);
+S5P_nucVolCell = S5P_nucVolCell(validFileFlag);
 
 S2P_volCell = S2P_volCell(validFileFlag);
 S2P_solCell = S2P_solCell(validFileFlag);
@@ -738,72 +793,80 @@ S2P_imgCell = S2P_imgCell(validFileFlag);
 S2P_centCell = S2P_centCell(validFileFlag);
 S2P_intCell = S2P_intCell(validFileFlag);
 S2P_nucIntCell = S2P_nucIntCell(validFileFlag);
+S2P_nucClustVolCell = S2P_nucClustVolCell(validFileFlag);
+S2P_nucVolCell = S2P_nucVolCell(validFileFlag);
 
 
 %% Sort into conditions
 
 uniqueCondNames = unique(condNames);
-numConds = numel(uniqueCondNames);
-fileIndsCell = cell(1,numConds);
-numFiles_perCond = zeros(1,numConds);
-for cc = 1:numConds
+numPlotSets = numel(uniqueCondNames);
+fileIndsCell = cell(1,numPlotSets);
+numFiles_perCond = zeros(1,numPlotSets);
+for cc = 1:numPlotSets
 	fileIndsCell{cc} = cellfun(...
 		@(elmt)strcmp(elmt,uniqueCondNames{cc}),condNames);
 	numFiles_perCond(cc) = sum(fileIndsCell{cc});
 end
 
-sortedCondNames = cell(1,numConds);
-sortedNumNuclei = zeros(1,numConds);
-sortedNumFiles = zeros(1,numConds);
+sortedCondNames = cell(1,numPlotSets);
+sortedNumFiles = zeros(1,numPlotSets);
 
+sortedNucVolCell = cell(1,numQuantChannels);
 sortedNucIntCell = cell(1,numQuantChannels);
 sortedCytoIntCell = cell(1,numQuantChannels);
 sortedNucStdCell = cell(1,numQuantChannels);
 
-sortedS5PPixelSize_xy = cell(1,numConds);
-sortedS5PPixelSize_z = cell(1,numConds);
-sortedS2PPixelSize_xy = cell(1,numConds);
-sortedS2PPixelSize_z = cell(1,numConds);
+sortedS5PPixelSize_xy = cell(1,numPlotSets);
+sortedS5PPixelSize_z = cell(1,numPlotSets);
+sortedS2PPixelSize_xy = cell(1,numPlotSets);
+sortedS2PPixelSize_z = cell(1,numPlotSets);
 
-sortedS5PNumCell = cell(1,numConds);
-sortedS5PVolCell = cell(1,numConds);
-sortedS5PSolCell = cell(1,numConds);
-sortedS5PEloCell = cell(1,numConds);
-sortedS5PCentralSliceCell = cell(1,numConds);
-sortedS5PCentroidsCell = cell(1,numConds);
+sortedS5PNumCell = cell(1,numPlotSets);
+sortedS5PVolCell = cell(1,numPlotSets);
+sortedS5PVolPerNucCell = cell(1,numPlotSets);
+sortedS5PSolCell = cell(1,numPlotSets);
+sortedS5PEloCell = cell(1,numPlotSets);
+sortedS5PCentralSliceCell = cell(1,numPlotSets);
+sortedS5PCentroidsCell = cell(1,numPlotSets);
 sortedS5PIntCell = cell(1,numQuantChannels);
 sortedS5PNucIntCell = cell(1,numQuantChannels);
+sortedS5PNucVolCell = cell(1,numPlotSets);  
+sortedS5PNucClustVolCell = cell(1,numPlotSets);
 
-sortedS2PNumCell = cell(1,numConds);
-sortedS2PVolCell = cell(1,numConds);
-sortedS2PSolCell = cell(1,numConds);
-sortedS2PEloCell = cell(1,numConds);
-sortedS2PCentralSliceCell = cell(1,numConds);
-sortedS2PCentroidsCell = cell(1,numConds);
+sortedS2PNumCell = cell(1,numPlotSets);
+sortedS2PVolCell = cell(1,numPlotSets);
+sortedS2PVolPerNucCell = cell(1,numPlotSets);
+sortedS2PSolCell = cell(1,numPlotSets);
+sortedS2PEloCell = cell(1,numPlotSets);
+sortedS2PCentralSliceCell = cell(1,numPlotSets);
+sortedS2PCentroidsCell = cell(1,numPlotSets);
 sortedS2PIntCell = cell(1,numQuantChannels);
 sortedS2PNucIntCell = cell(1,numQuantChannels);
+sortedS2PNucVolCell = cell(1,numPlotSets);  
 
 for qq = 1:numQuantChannels
-	sortedNucIntCell{qq} = cell(1,numConds);
-	sortedCytoIntCell{qq} = cell(1,numConds);
-    sortedNucStdCell{qq} = cell(1,numConds);
-	sortedS5PIntCell{qq} = cell(1,numConds);
-    sortedS5PNucIntCell{qq} = cell(1,numConds);
-	sortedS2PIntCell{qq} = cell(1,numConds);
-    sortedS2PNucIntCell{qq} = cell(1,numConds);
+	sortedNucIntCell{qq} = cell(1,numPlotSets);
+	sortedCytoIntCell{qq} = cell(1,numPlotSets);
+    sortedNucStdCell{qq} = cell(1,numPlotSets);
+	sortedS5PIntCell{qq} = cell(1,numPlotSets);
+    sortedS5PNucIntCell{qq} = cell(1,numPlotSets);
+	sortedS2PIntCell{qq} = cell(1,numPlotSets);
+    sortedS2PNucIntCell{qq} = cell(1,numPlotSets);
 end
 
 
-for cc = 1:numConds
+for cc = 1:numPlotSets
 	
 	sortedCondNames{cc} = ...
 		condNames(fileIndsCell{cc});
 	sortedCondNames{cc} = sortedCondNames{cc}{1};
 	
-	sortedNumNuclei(cc) = ...
-		sum(numNuclei_vec(fileIndsCell{cc}));
 	sortedNumFiles(cc) = sum(fileIndsCell{cc});
 	
+    sortedNucVolCell{cc} = ...
+        vertcat(nuc_volCell{fileIndsCell{cc}});
+
     sortedS5PPixelSize_xy{cc} = ...
         vertcat(S5P_xyVoxelSizeCell{fileIndsCell{cc}});
     sortedS5PPixelSize_z = ...
@@ -818,40 +881,55 @@ for cc = 1:numConds
 		'UniformOutput',false));
 	S5P_nums = vertcat(S5P_nums{:});
 	S5P_vols = vertcat(S5P_volCell{fileIndsCell{cc}});
-	S5P_sols = vertcat(S5P_solCell{fileIndsCell{cc}});
+	S5P_perNucVols = vertcat(arrayfun(...
+        @(val)perNuc_volumeCell{val}{1},find(fileIndsCell{cc}),...
+        'UniformOutput',false));
+    S5P_sols = vertcat(S5P_solCell{fileIndsCell{cc}});
 	S5P_elos = vertcat(S5P_eloCell{fileIndsCell{cc}});
 	S5P_slices = vertcat(S5P_imgCell{fileIndsCell{cc}});
 	S5P_centroids = vertcat(S5P_centCell{fileIndsCell{cc}});
 	S5P_ints = S5P_intCell(fileIndsCell{cc});
     S5P_nucInts = S5P_nucIntCell(fileIndsCell{cc});
+    S5P_nucVols = horzcat(S5P_nucVolCell{fileIndsCell{cc}})';
+    S5P_nucClustVols = S5P_nucClustVolCell(fileIndsCell{cc});
     
 	sortedS5PNumCell{cc} = S5P_nums;
-	sortedS5PVolCell{cc} = S5P_vols;
-	sortedS5PSolCell{cc} = S5P_sols;
+    sortedS5PVolCell{cc} = S5P_vols;
+    sortedS5PVolPerNucCell{cc} = S5P_perNucVols;
+    sortedS5PSolCell{cc} = S5P_sols;
 	sortedS5PEloCell{cc} = S5P_elos;
 	sortedS5PCentralSliceCell{cc} = S5P_slices;
 	sortedS5PCentroidsCell{cc} = S5P_centroids;
-
-
+    sortedS5PNucVolCell{cc} = vertcat(S5P_nucVols{:});
+    sortedS5PNucClustVolCell{cc} = horzcat(S5P_nucClustVols{:})';
+	
+                    
 	S2P_nums = vertcat(arrayfun(...
 		@(val)perNuc_countCell{val}{2},find(fileIndsCell{cc}),...
 		'UniformOutput',false));
 	S2P_nums = vertcat(S2P_nums{:});
 	S2P_vols = vertcat(S2P_volCell{fileIndsCell{cc}});
-	S2P_sols = vertcat(S2P_solCell{fileIndsCell{cc}});
+	S2P_perNucVols = vertcat(arrayfun(...
+        @(val)perNuc_volumeCell{val}{2},find(fileIndsCell{cc}),...
+        'UniformOutput',false));
+    S2P_sols = vertcat(S2P_solCell{fileIndsCell{cc}});
 	S2P_elos = vertcat(S2P_eloCell{fileIndsCell{cc}});
 	S2P_slices = vertcat(S2P_imgCell{fileIndsCell{cc}});
 	S2P_centroids = vertcat(S2P_centCell{fileIndsCell{cc}});
 	S2P_ints = S2P_intCell(fileIndsCell{cc});
     S2P_nucInts = S2P_nucIntCell(fileIndsCell{cc});
+    S2P_nucVols = horzcat(S2P_nucVolCell{fileIndsCell{cc}})';
+   
 
 	sortedS2PNumCell{cc} = S2P_nums;
 	sortedS2PVolCell{cc} = S2P_vols;
-	sortedS2PSolCell{cc} = S2P_sols;
+    sortedS2PVolPerNucCell{cc} = S2P_perNucVols;
+    sortedS2PSolCell{cc} = S2P_sols;
 	sortedS2PEloCell{cc} = S2P_elos;
 	sortedS2PCentralSliceCell{cc} = S2P_slices;
 	sortedS2PCentroidsCell{cc} = S2P_centroids;
-
+    sortedS2PNucVolCell{cc} = vertcat(S2P_nucVols{:});
+    sortedS2PNucClustVolCell{cc} = horzcat(S2P_nucClustVols{:})';
 	
 	for qq = 1:numQuantChannels
 		
@@ -903,312 +981,556 @@ for cc = 1:numConds
 	
 end
 
+%% Show reasoning for different volume cutoffs
 
+Vol_threshold = 0.1;
 
-%% Plotting of result overview
+% Define which number of data set corresponds to which condition
+datasetInds = {[11,5,9,1,3,7,11+1,5+1,9+1,1+1,3+1,7+1],...
+    [11+14,5+14,9+14,1+14,3+14,7+14,11+15,5+15,9+15,1+15,3+15,7+15]};
 
-sorted_central_slices = cell(1,numConds);
+datasetNames = {'-LIF','RHB'};
 
-Num_median = zeros(1,numConds);
-Num_CI = zeros(2,numConds);
-S5P_median = zeros(1,numConds);
-S5P_CI = zeros(2,numConds);
-S2P_median = zeros(1,numConds);
-S2P_CI = zeros(2,numConds);
-Vol_median = zeros(1,numConds);
-Vol_CI = zeros(2,numConds);
-Elo_median = zeros(1,numConds);
-Elo_CI = zeros(2,numConds);
-Sol_median = zeros(1,numConds);
-Sol_CI = zeros(2,numConds);
+refDatasetInds = [...
+    1,2,1,2,1,2,1,2,1,2,1,2,...
+    15,16,15,16,15,16,15,16,15,16,15,16];
 
-for cc = 1:numConds
-	
-	Vol_threshold = 0.2;0.01;0.25;	
-	S5P_threshold = 0;1.2;
-	inclInds = ...
-		sortedS5PVolCell{cc}>=Vol_threshold ...
-		& sortedS5PIntCell{1}{cc}>=S5P_threshold;
-	
-	S5P_Num_vals = [sortedS5PNumCell{cc}];
-	S2P_Num_vals = [sortedS2PNumCell{cc}];
-	Nuc_S5P_vals = [sortedNucIntCell{1}{cc}-sortedCytoIntCell{1}{cc}];
-	Nuc_S2P_vals = [sortedNucIntCell{2}{cc}-sortedCytoIntCell{1}{cc}];
-	
-	S5P_S5P_vals = [sortedS5PIntCell{1}{cc}(inclInds)];
-	S5P_S2P_vals = [sortedS5PIntCell{2}{cc}(inclInds)];
-	S5P_Vol_vals = [sortedS5PVolCell{cc}(inclInds)];
-    S5P_Elo_vals = [sortedS5PEloCell{cc}(inclInds)];
-	S5P_Sol_vals = [sortedS5PSolCell{cc}(inclInds)];
-% 	S5P_slices = [sortedS5PCentralSliceCell{cc}(inclInds)];
-	
-	S2P_S5P_vals = [sortedS2PIntCell{1}{cc}];
-	S2P_S2P_vals = [sortedS2PIntCell{2}{cc}];
-	S2P_Vol_vals = [sortedS2PVolCell{cc}];
-    S2P_Elo_vals = [sortedS2PEloCell{cc}];
-	S2P_Sol_vals = [sortedS2PSolCell{cc}];
-% 	S2P_slices = [sortedS2PCentralSliceCell{cc}];
-		
-	numPoints = numel(S5P_S2P_vals);
-	
-	n_boot = 200;
-	
-    S5P_median(cc) = median(Nuc_S5P_vals);
-	S5P_CI(:,cc) = bootci(n_boot,@median,Nuc_S5P_vals);
-	S2P_median(cc) = median(Nuc_S2P_vals);
-	S2P_CI(:,cc) = bootci(n_boot,@median,Nuc_S2P_vals);
-	
-    S5P_median(cc) = median(S5P_S5P_vals);
-	S5P_CI(:,cc) = bootci(n_boot,@median,S5P_S5P_vals);
-	S2P_median(cc) = median(S5P_S2P_vals);
-	S2P_CI(:,cc) = bootci(n_boot,@median,S5P_S2P_vals);
-	
-%     S5P_median(cc) = median(S2P_S5P_vals);
-% 	S5P_CI(:,cc) = bootci(n_boot,@median,S2P_S5P_vals);
-% 	S2P_median(cc) = median(S2P_S2P_vals);
-% 	S2P_CI(:,cc) = bootci(n_boot,@median,S2P_S2P_vals);
-	
-    Vol_median(cc) = median(S5P_Vol_vals);
-	Vol_CI(:,cc) = bootci(n_boot,@median,S5P_Vol_vals);
-	Elo_median(cc) = median(S5P_Elo_vals);
-	Elo_CI(:,cc) = bootci(n_boot,@median,S5P_Elo_vals);
-	
-    Sol_median(cc) = median(S5P_Sol_vals);
-	Sol_CI(:,cc) = bootci(n_boot,@median,S5P_Sol_vals);
-	Num_median(cc) = median(S5P_Num_vals);
-	Num_CI(:,cc) = bootci(n_boot,@median,S5P_Num_vals);
-	
-% 	subplot(subplot_layout(1),subplot_layout(2),...
-% 		plot_order(cc))
-% 	
-% 	plot([1,1].*0.5,[0,1],'k-','Color',[0.6,0.6,0.6],'LineWidth',1)
-% 	hold on
-% 	plot([0,4],[1,1].*0.35,'k-','Color',[0.6,0.6,0.6],'LineWidth',1)
-% 	plot((S5P_Vol_vals),S5P_Sol_vals,'k.')
-% 	set(gca,'XLim',[0,4],'YLim',[0,1])
-% 	title(sortedCondNames{cc})
-% 	xlabel('Volume [\mum^3]')
-% 	ylabel('Solidity')
-% % 	waitforbuttonpress
-	
-end
+targets = {...
+    [1,2,3,4,5,6,1,2,3,4,5,6],...
+    [1,2,3,4,5,6,1,2,3,4,5,6]};
+targetNames = {'Ctrl 24 h','3 h','6 h','12 h','24 h','48 h'};
 
-% plot overview
+numPlots = numel(datasetInds);
 
-figure(1)
+% Make density plots of cluster volume
+
+figure(2)
 clf
 
-datasetInds = {[1],[2]};
-xaxisInds = {[1],...
-	[2]};
-numPlotSets = numel(xaxisInds);
-setSymbols = {'ko','rs'};
-setFaceColors = {[0,0,0],[1,0,0]};
-setNames = {'Control','Flavopiridol'};
+for pp = 1:numPlots
+    
+    numTargets = numel(unique(targets{pp}));
 
-numLabels = sum(cellfun(@(elmt)numel(elmt),xaxisInds));
-labelCallInds = [xaxisInds{:}];
+    % Collect all data needed to analyze this data set
+    inclDatasets = datasetInds{pp};
+    numDatasets = numel(inclDatasets);
+    
+    % Plot for different differentiation time points
 
-for pp = 1:numPlotSets
-	
-	subplot(5,1,1)
-	errorbar(xaxisInds{pp},S5P_median(datasetInds{pp}),...
-		S5P_CI(1,(datasetInds{pp}))-S5P_median(datasetInds{pp}),...
-		S5P_median(datasetInds{pp})-S5P_CI(2,(datasetInds{pp})),...
-		setSymbols{pp},'MarkerFaceColor',setFaceColors{pp})
-	hold on
-	
-	set(gca,'XTick',1:numLabels,...
-		'XTickLabels',sortedCondNames(labelCallInds),...
-        'XLim',[0.5,numLabels+0.5])
-	xlabel('')
-	ylabel('Pol II Ser5P Int.')
-	xtickangle(30)
-	
-	subplot(5,1,2)
-	errorbar(xaxisInds{pp},S2P_median(datasetInds{pp}),...
-		S2P_CI(1,(datasetInds{pp}))-S2P_median(datasetInds{pp}),...
-		S2P_median(datasetInds{pp})-S2P_CI(2,(datasetInds{pp})),...
-		setSymbols{pp},'MarkerFaceColor',setFaceColors{pp})
-	hold on
-	set(gca,'XTick',1:numLabels,...
-		'XTickLabels',sortedCondNames(labelCallInds),...
-        'XLim',[0.5,numLabels+0.5])
-	xlabel('')
-	ylabel('Pol II Ser2P Int.')
-	xtickangle(30)
-	
-	subplot(5,1,3)
-	errorbar(xaxisInds{pp},Num_median(datasetInds{pp}),...
-		Num_CI(1,(datasetInds{pp}))-Num_median(datasetInds{pp}),...
-		Num_median(datasetInds{pp})-Num_CI(2,(datasetInds{pp})),...
-		setSymbols{pp},'MarkerFaceColor',setFaceColors{pp})
-	hold on
-	set(gca,'XTick',1:numLabels,...
-		'XTickLabels',sortedCondNames(labelCallInds),...
-        'XLim',[0.5,numLabels+0.5])
-	xlabel('')
-	ylabel('No. clusters')
-	xtickangle(30)
-	
-	subplot(5,1,4)
-	errorbar(xaxisInds{pp},Vol_median(datasetInds{pp}),...
-		Vol_CI(1,(datasetInds{pp}))-Vol_median(datasetInds{pp}),...
-		Vol_median(datasetInds{pp})-Vol_CI(2,(datasetInds{pp})),...
-		setSymbols{pp},'MarkerFaceColor',setFaceColors{pp})
-	hold on
-	set(gca,'XTick',1:numLabels,...
-		'XTickLabels',sortedCondNames(labelCallInds),...
-        'XLim',[0.5,numLabels+0.5])
-	xlabel('')
-	ylabel('Volume [\mum^3]')
-	xtickangle(30)
-	
-% 	subplot(5,1,4)
-% 	errorbar(xaxisInds{pp},Elo_median(datasetInds{pp}),...
-% 		Elo_CI(1,(datasetInds{pp}))-Elo_median(datasetInds{pp}),...
-% 		Elo_median(datasetInds{pp})-Elo_CI(2,(datasetInds{pp})),...
-% 		setSymbols{pp},'MarkerFaceColor',setFaceColors{pp})
-% 	hold on
-% 	set(gca,'XTick',1:numConds,...
-% 		'XTickLabels',sortedCondNames(xaxisInds{pp}))
-% 	xlabel('')
-% 	ylabel('Elongation')
-% 	xtickangle(30)
-	
-	subplot(5,1,5)
-	errorbar(xaxisInds{pp},Sol_median(datasetInds{pp}),...
-		Sol_CI(1,(datasetInds{pp}))-Sol_median(datasetInds{pp}),...
-		Sol_median(datasetInds{pp})-Sol_CI(2,(datasetInds{pp})),...
-		setSymbols{pp},'MarkerFaceColor',setFaceColors{pp})
-	hold on
-	set(gca,'XTick',1:numLabels,...
-		'XTickLabels',sortedCondNames(labelCallInds),...
-        'XLim',[0.5,numLabels+0.5])
-	xlabel('')
-	ylabel('Solidity')
-	xtickangle(30)
-	
+    collect_S5P = [];
+    collect_S2P = [];
+    collect_Vol = [];
+    collect_S2P_S5P = [];
+    collect_S2P_S2P = [];
+    collect_S2P_Vol = [];
+    
+    for kk = 1:numDatasets
+        
+        cc = inclDatasets(kk);
+        tt = targets{pp}(kk);
+        
+        inclInds = ...
+            sortedS5PVolCell{cc}>=0;
+        
+        S5P_Num_vals = [sortedS5PNumCell{cc}];
+        S2P_Num_vals = [sortedS2PNumCell{cc}];
+        Nuc_S5P_vals = [sortedNucIntCell{1}{cc}-sortedCytoIntCell{1}{cc}]';
+        Nuc_S2P_vals = [sortedNucIntCell{2}{cc}-sortedCytoIntCell{2}{cc}]';
+        
+        S5P_S5P_vals = [sortedS5PIntCell{1}{cc}(inclInds)];
+        S5P_S2P_vals = [sortedS5PIntCell{2}{cc}(inclInds)];
+        S5P_NucS5P_vals = [sortedS5PNucIntCell{1}{cc}(inclInds)];
+        S5P_NucS2P_vals = [sortedS5PNucIntCell{2}{cc}(inclInds)];
+        S5P_Vol_vals = [sortedS5PVolCell{cc}(inclInds)];
+        S5P_Elo_vals = [sortedS5PEloCell{cc}(inclInds)];
+        S5P_Sol_vals = [sortedS5PSolCell{cc}(inclInds)];
+        
+        S2P_S5P_vals = [sortedS2PIntCell{1}{cc}];
+        S2P_S2P_vals = [sortedS2PIntCell{2}{cc}];
+        S2P_NucS5P_vals = [sortedS2PNucIntCell{1}{cc}];
+        S2P_NucS2P_vals = [sortedS2PNucIntCell{2}{cc}];
+        S2P_Vol_vals = [sortedS2PVolCell{cc}];
+        S2P_Elo_vals = [sortedS2PEloCell{cc}];
+        S2P_Sol_vals = [sortedS2PSolCell{cc}];
+
+        collect_S5P = vertcat(collect_S5P,S5P_S5P_vals);
+        collect_S2P = vertcat(collect_S2P,S5P_S2P_vals);
+        collect_Vol = vertcat(collect_Vol,S5P_Vol_vals);
+        collect_S2P_S5P = vertcat(collect_S2P_S5P,S2P_S5P_vals);
+        collect_S2P_S2P = vertcat(collect_S2P_S2P,S2P_S2P_vals);
+        collect_S2P_Vol = vertcat(collect_S2P_Vol,S2P_Vol_vals);
+
+    end
+
+    VV_sample_points = linspace(0,0.5,200);
+
+    subplot(numPlots,4,4.*(pp-1)+1)
+    cla
+    [VV_prob,VV_supp] = ksdensity(collect_Vol,VV_sample_points,...
+        'Support','unbounded','Bandwidth',0.005);
+    plot(VV_supp,VV_prob,'k-','LineWidth',1)
+    hold on
+    
+    [VV_prob,VV_supp] = ksdensity(collect_S2P_Vol,VV_sample_points,...
+        'Support','unbounded','Bandwidth',0.005);
+    plot(VV_supp,VV_prob,'r--','LineWidth',1)
+    
+    set(gca,'YScale','log','YLim',[0.01,100],'XLim',[0,0.5])
+    title(sprintf('%s',datasetNames{pp}),...
+        'FontWeight','normal')
+
+    xlabel('Volume [\mum^3]')
+    ylabel('Prob. density')
+    
+    plot([1,1].*Vol_threshold,[0.001,1000],'b:',...
+        'LineWidth',1.5)
+
+    legend('Pol II Ser5P clusters','Pol II Ser2P spots',...
+        sprintf('V_{threshold}=%2.2f \\mum^3',Vol_threshold))
+
+    
+    subplot(numPlots,4,4.*(pp-1)+2)
+    
+%     scatter1 = scatter(...
+%         collect_S5P(collect_Vol>=Vol_threshold),...
+%         collect_S2P(collect_Vol>=Vol_threshold),2,...
+%         'MarkerFaceColor',[1.0,0,0],...
+%         'MarkerEdgeColor','none');
+%     alpha(scatter1,.05)
+%     hold on
+    scatter1 = scatter(...
+        collect_S5P(collect_Vol<Vol_threshold),...
+        collect_S2P(collect_Vol<Vol_threshold),2,...
+        'MarkerFaceColor',[0.0,0.0,0.0],...
+        'MarkerEdgeColor','none');
+    alpha(scatter1,.05)
+    hold off
+
+    legend('V<V_{threshold}')
+    xlabel('Pol II Ser5P Int.')
+    ylabel('Pol II Ser2P Int.')
+    set(gca,'XLim',[0.75,4],'YLim',[0,6],'Box','on')
+
+    title(sprintf('%s, small Pol II Ser5P clusters',datasetNames{pp}),...
+            'FontWeight','normal')
+
+    subplot(numPlots,4,4.*(pp-1)+3)
+
+    scatter1 = scatter(...
+        collect_S5P(collect_Vol<Vol_threshold),...
+        collect_S2P(collect_Vol<Vol_threshold),2,...
+        'MarkerFaceColor',[0.5,0.5,0.5],...
+        'MarkerEdgeColor','none');
+    alpha(scatter1,.05)
+    hold on
+    scatter1 = scatter(...
+        collect_S5P(collect_Vol>=Vol_threshold),...
+        collect_S2P(collect_Vol>=Vol_threshold),2,...
+        'MarkerFaceColor',[1,0,0],...
+        'MarkerEdgeColor','none');
+    alpha(scatter1,0.2)
+    hold off
+
+    legend('V<V_{threshold}','V\geqV_{threshold}')
+    xlabel('Pol II Ser5P Int.')
+    ylabel('Pol II Ser2P Int.')
+
+    set(gca,'XLim',[0.75,4],'YLim',[0,6],'Box','on')
+
+    title(sprintf('%s, large Pol II Ser5P clusters',datasetNames{pp}),...
+            'FontWeight','normal')
+
+
+  
+    subplot(numPlots,4,4.*(pp-1)+4)
+    plot(collect_S5P,collect_S2P,'ko',...
+        'MarkerFaceColor',[1,0.5,0.5],...
+        'MarkerEdgeColor','none',...
+        'MarkerSize',2)
+    hold on
+    plot(collect_S2P_S5P,collect_S2P_S2P,'ro',...
+        'MarkerFaceColor',[0,0,0],...
+        'MarkerEdgeColor','none',...
+        'MarkerSize',2)
+    hold on
+    legend('Ser5P clusters','Ser2P spots')
+    xlabel('Pol II Ser5P Int.')
+    ylabel('Pol II Ser2P Int.')
+    set(gca,'XLim',[0,5],'YLim',[0,30])
+
+    title(sprintf('%s, Pol II Ser2P spots',datasetNames{pp}),...
+            'FontWeight','normal')    
+
+
+
 end
 
-subplot(5,1,1)
 
-legend(setNames,'Location','Northwest')
+%% Analyze the results pooled from both repeats
+
+minNucVol = 100; % Miminal nuclear volume
+maxNucVol = 470; % Maxinal nuclear volume
+
+datasetInds = {[11,5,9,1,3,7,11+1,5+1,9+1,1+1,3+1,7+1],...
+    [11+14,5+14,9+14,1+14,3+14,7+14,11+15,5+15,9+15,1+15,3+15,7+15]};
+
+datasetNames = {'-LIF','RHB'};
+
+refDatasetInds = [...
+    1,2,1,2,1,2,1,2,1,2,1,2,...
+    15,16,15,16,15,16,15,16,15,16,15,16];
+
+targets = {...
+    [1,2,3,4,5,6,1,2,3,4,5,6],...
+    [1,2,3,4,5,6,1,2,3,4,5,6]};
+targetNames = {'Ctrl 24 h','3 h','6 h','12 h','24 h','48 h'};
+
+mapLimits = {[0,6,0,3],[0,8,0,6]};
+
+S5P_threshold = 0.0;
+
+n_boot = 1000;
 
 
-% %% --- plot the cluster masks
-% 
-% figure(2)
-% clf
-% 
-% loadStruct = load(listing(1).name,'pixelSize');
-% pixelSize = loadStruct.pixelSize;
-% 
-% % Condition index, Cluster index, zoom switch
-% exampleImgs = {...
-% 	[1,10],[1,11],[1,12],[1,13],[1,14],...
-% 	[1,15],[1,16],[1,17],[1,18],[1,19]};
-% 
-% numExamples = numel(exampleImgs);
-% 
-% rescaleFac = 2.5;
-% windowSize = 2.2; %microns
-% 
-% for ee = 1:numExamples
-% 	
-% 	OP_img = imresize(...
-% 		sortedS5PCentralSliceCell{exampleImgs{ee}(1)}{exampleImgs{ee}(2)}{1},...
-% 		rescaleFac);
-% 	S5P_img = imresize(...
-% 		sortedS5PCentralSliceCell{exampleImgs{ee}(1)}{exampleImgs{ee}(2)}{2},...
-% 		rescaleFac);
-% 	OP_img = OP_img - prctile(OP_img(:),5);
-% 	OP_img(OP_img<0) = 0;
-% 	OP_img = OP_img./prctile(OP_img(:),99.999);
-% 	OP_img(OP_img>1) = 1;
-% 	S5P_img = S5P_img - prctile(S5P_img(:),50);
-% 	S5P_img(S5P_img<0) = 0;
-% 	S5P_img = S5P_img./prctile(S5P_img(:),99.99);
-% 	S5P_img(S5P_img>1) = 1;
-% 	S2P_img = imresize(...
-% 		sortedS5PCentralSliceCell{exampleImgs{ee}(1)}{exampleImgs{ee}(2)}{3},...
-% 		rescaleFac);
-% 	S2P_img = S2P_img - prctile(S2P_img(:),20);
-% 	S2P_img(S2P_img<0) = 0;
-% 	S2P_img = S2P_img./prctile(S2P_img(:),99.9);
-% 	S2P_img(S2P_img>1) = 1;
-% 	S5P_mask = imresize(...
-% 		sortedS5PCentralSliceCell{exampleImgs{ee}(1)}{exampleImgs{ee}(2)}{4},...
-% 		rescaleFac);
-% 	OP_mask = imresize(...
-% 		sortedS5PCentralSliceCell{exampleImgs{ee}(1)}{exampleImgs{ee}(2)}{5},...
-% 		rescaleFac);
-% 	
-% 	
-% 	OP_img(bwperim(OP_mask)) = max(OP_img(:));
-% 	S5P_img(bwperim(OP_mask)) = max(S5P_img(:));
-% 	S2P_img(bwperim(OP_mask)) = max(S2P_img(:));
-% 
-% 	
-% 	Centroid = sortedS5PCentroidsCell{exampleImgs{ee}(1)}(exampleImgs{ee}(2),:);
-% 	
-% 	imgSize = pixelSize.*size(OP_img)./rescaleFac;
-% 	
-% 	subplot(numExamples,4,(ee-1).*4+1)
-% 	imagesc([0,imgSize(2)],[0,imgSize(1)],OP_img)
-% 	axis equal tight
-% 	colormap(gray)
-% 	if ee == 1
-% 		hold on
-% 		plot(Centroid(1)-[1,0],Centroid(2)-[1,1],'w-','LineWidth',2)
-% 		title('Oligopaint','FontWeight','normal')
-% 	end
-% 	set(gca,'XLim',Centroid(1)+[-0.5,+0.5].*windowSize,...
-% 		'YLim',Centroid(2)+[-0.5,+0.5].*windowSize,...
-% 		'XTick',[],'YTick',[])
-% 	ylabel(sortedCondNames{exampleImgs{ee}(1)})
-% 	
-% 	subplot(numExamples,4,(ee-1).*4+2)
-% 	imagesc([0,imgSize(2)],[0,imgSize(1)],S5P_img)
-% 	axis equal tight
-% 	colormap(gray)
-% 	if ee == 1
-% 		title('Pol II Ser5P','FontWeight','normal')
-% 	end
-% 	hold on
-% 	set(gca,'XLim',Centroid(1)+[-0.5,+0.5].*windowSize,...
-% 		'YLim',Centroid(2)+[-0.5,+0.5].*windowSize,...
-% 		'XTick',[],'YTick',[])
-% 
-% 
-% 	subplot(numExamples,4,(ee-1).*4+3)
-% 	imagesc([0,imgSize(2)],[0,imgSize(1)],S2P_img)
-% 	axis equal tight
-% 	colormap(gray)
-% 	if ee == 1
-% 		title('Pol II Ser2P','FontWeight','normal')
-% 	end
-% 	set(gca,'XLim',Centroid(1)+[-0.5,+0.5].*windowSize,...
-% 		'YLim',Centroid(2)+[-0.5,+0.5].*windowSize,...
-% 		'XTick',[],'YTick',[])
-% 
-% 	subplot(numExamples,4,(ee-1).*4+4)
-% 	greenChannel = S2P_img-min(S2P_img(:));
-% 	greenChannel = greenChannel./max(greenChannel(:));
-% 	magentaChannel = S5P_img-min(S5P_img(:));
-% 	magentaChannel = magentaChannel./max(magentaChannel(:));
-% 	rgb_img = zeros(size(S2P_img,1),size(S2P_img,2),3);
-% 	rgb_img(:,:,1) = magentaChannel;
-% 	rgb_img(:,:,2) = greenChannel;
-% 	rgb_img(:,:,3) = magentaChannel;
-% 	image([0,imgSize(2)],[0,imgSize(1)],rgb_img)
-% 	axis equal tight
-% 	if ee == 1
-% 		title('Merge','FontWeight','normal')
-% 	end
-% 	set(gca,'XLim',Centroid(1)+[-0.5,+0.5].*windowSize,...
-% 		'YLim',Centroid(2)+[-0.5,+0.5].*windowSize,...
-% 		'XTick',[],'YTick',[])
-% 
-% 	
-% end
+numPlots = numel(datasetInds);
+
+plotStyles = {'k-','r--'};
+
+figure(3)
+clf
+
+for pp = 1:numPlots
+    
+    numTargets = numel(unique(targets{pp}));
+
+    % Collect all data needed to analyze this data set
+    inclDatasets = datasetInds{pp};
+    numDatasets = numel(inclDatasets);
+    
+    % Collect for distribution plots and normalization
+    
+    Nuc_group_vec = [];
+    Nuc_Vol_vec = [];
+    Nuc_S5P_vec = [];
+    Nuc_S2P_vec = [];
+    Nuc_ClusterNum_vec_unscaled = [];
+    Nuc_ClusterNum_vec = [];
+
+
+    Num_S5P_vec = [];
+    Num_S2P_vec = [];
+        
+    S5P_group_vec = [];
+    S5P_S5P_vec = [];
+    S5P_S2P_vec = [];
+    S5P_NucClusterNum_vec = [];
+    S5P_NucS5P_vec = [];
+    S5P_NucS2P_vec = [];
+    S5P_Vol_vec = [];
+    S5P_Sol_vec = [];
+    S5P_Elo_vec = [];
+
+    S5P_all_group_vec = [];
+    S5P_allVol_vec = [];
+    
+    S2P_group_vec = [];
+    S2P_S5P_vec = [];
+    S2P_S2P_vec = [];
+    S2P_NucS5P_vec = [];
+    S2P_NucS2P_vec = [];
+
+    for kk = 1:numDatasets
+        
+        cc = inclDatasets(kk);
+        tt = targets{pp}(kk);
+        
+        inclInds = ...
+            sortedS5PVolCell{cc}>=Vol_threshold ...
+            & sortedS5PIntCell{1}{cc}>=S5P_threshold ...
+            & sortedS5PNucVolCell{cc}>=minNucVol ...
+            & sortedS5PNucVolCell{cc}<=maxNucVol;
+        
+        Nuc_Vol_vals = [sortedNucVolCell{cc}];
+        S5P_Num_vals = [sortedS5PNumCell{cc}];
+        S2P_Num_vals = [sortedS2PNumCell{cc}];
+        Nuc_S5P_vals = [sortedNucIntCell{1}{cc}-sortedCytoIntCell{1}{cc}]';
+        Nuc_S2P_vals = [sortedNucIntCell{2}{cc}-sortedCytoIntCell{2}{cc}]';
+
+        NucClusterNum_vals = [cellfun( ...
+            @(elmt)cellfun(@(elmt2)sum(elmt2>=Vol_threshold),elmt),...
+            sortedS5PVolPerNucCell{cc},'UniformOutput',false)];
+        NucClusterNum_vals = vertcat(NucClusterNum_vals{:});
+        NucClusterNum_vals_unscaled = NucClusterNum_vals;
+        NucClusterNum_vals = NucClusterNum_vals./Nuc_Vol_vals;
+        NucClusterNum_vals = NucClusterNum_vals.*300;
+        % to scale to per 300 cubic microns
+    
+
+        % ---- Calculate clusters per volume over the whole nucleus, but
+        % saved for every individual S5P cluster
+        % Input variables that are available at this point
+
+        % Volume of all clusters, per S5P cluster
+        ClustVols = vertcat(sortedS5PNucClustVolCell{cc}{:});
+        S5P_NucClusterNum_vals = cellfun(...
+            @(elmt)sum(elmt>=Vol_threshold),ClustVols);
+        S5P_NucClusterNum_vals = S5P_NucClusterNum_vals(inclInds);
+
+        % Volume of the nuclei, per S5P cluster
+        NucVol = sortedS5PNucVolCell{cc}(inclInds);
+
+        S5P_NucClusterNum_vals = S5P_NucClusterNum_vals./NucVol;
+        % ----
+
+
+        S5P_S5P_vals = [sortedS5PIntCell{1}{cc}(inclInds)];
+        S5P_S2P_vals = [sortedS5PIntCell{2}{cc}(inclInds)];
+        S5P_NucS5P_vals = [sortedS5PNucIntCell{1}{cc}(inclInds)];
+        S5P_NucS2P_vals = [sortedS5PNucIntCell{2}{cc}(inclInds)];
+        S5P_allVol_vals = [sortedS5PVolCell{cc}];
+        S5P_Vol_vals = [sortedS5PVolCell{cc}(inclInds)];
+        S5P_Elo_vals = [sortedS5PEloCell{cc}(inclInds)];
+        S5P_Sol_vals = [sortedS5PSolCell{cc}(inclInds)];
+        
+        S2P_S5P_vals = [sortedS2PIntCell{1}{cc}];
+        S2P_S2P_vals = [sortedS2PIntCell{2}{cc}];
+        S2P_NucS5P_vals = [sortedS2PNucIntCell{1}{cc}];
+        S2P_NucS2P_vals = [sortedS2PNucIntCell{2}{cc}];
+        S2P_Vol_vals = [sortedS2PVolCell{cc}];
+        S2P_Elo_vals = [sortedS2PEloCell{cc}];
+        S2P_Sol_vals = [sortedS2PSolCell{cc}];
+        
+        Nuc_group_vec = vertcat(Nuc_group_vec,tt.*ones(size(Nuc_S5P_vals)));
+        Nuc_Vol_vec = vertcat(Nuc_Vol_vec,Nuc_Vol_vals);
+        Nuc_S5P_vec = vertcat(Nuc_S5P_vec,Nuc_S5P_vals);
+        Nuc_S2P_vec = vertcat(Nuc_S2P_vec,Nuc_S2P_vals);
+        Num_S5P_vec = vertcat(Num_S5P_vec,S5P_Num_vals);
+        Num_S2P_vec = vertcat(Num_S2P_vec,S5P_Num_vals);
+        Nuc_ClusterNum_vec_unscaled = ...
+            vertcat(Nuc_ClusterNum_vec_unscaled,...
+            NucClusterNum_vals_unscaled);
+        Nuc_ClusterNum_vec = vertcat(Nuc_ClusterNum_vec,NucClusterNum_vals);
+
+        S5P_group_vec = vertcat(S5P_group_vec,tt.*ones(size(S5P_S5P_vals)));
+        S5P_S5P_vec = vertcat(S5P_S5P_vec,S5P_S5P_vals);
+        S5P_S2P_vec = vertcat(S5P_S2P_vec,S5P_S2P_vals);
+        S5P_NucClusterNum_vec = vertcat(S5P_NucClusterNum_vec,...
+            S5P_NucClusterNum_vals);
+        S5P_NucS5P_vec = vertcat(S5P_NucS5P_vec,S5P_NucS5P_vals);
+        S5P_NucS2P_vec = vertcat(S5P_NucS2P_vec,S5P_NucS2P_vals);
+        S5P_Vol_vec = vertcat(S5P_Vol_vec,S5P_Vol_vals);
+        S5P_Elo_vec = vertcat(S5P_Elo_vec,S5P_Elo_vals);
+        S5P_Sol_vec = vertcat(S5P_Sol_vec,S5P_Sol_vals);
+        
+        S5P_all_group_vec = vertcat(S5P_all_group_vec,...
+            tt.*ones(size(S5P_allVol_vals)));
+        S5P_allVol_vec = vertcat(S5P_allVol_vec,S5P_allVol_vals);
+
+        S2P_group_vec = vertcat(S2P_group_vec,tt.*ones(size(S2P_S5P_vals)));
+        S2P_S5P_vec = vertcat(S2P_S5P_vec,S2P_S5P_vals);
+        S2P_S2P_vec = vertcat(S2P_S2P_vec,S2P_S2P_vals);
+        S2P_NucS5P_vec = vertcat(S2P_NucS5P_vec,S2P_NucS5P_vals);
+        S2P_NucS2P_vec = vertcat(S2P_NucS2P_vec,S2P_NucS2P_vals);
+                
+    end
+    
+    Num_S5P_mean = zeros(1,numTargets);
+    Num_S5P_CI = zeros(2,numTargets);
+    Nuc_S5P_median = zeros(1,numTargets);
+    Nuc_S5P_CI = zeros(2,numTargets);
+    Nuc_S2P_median = zeros(1,numTargets);
+    Nuc_S2P_CI = zeros(2,numTargets);
+    Nuc_ClusterNum_mean = zeros(1,numTargets);
+    Nuc_ClusterNum_CI = zeros(2,numTargets);
+
+    S5P_allVol_mean = zeros(1,numTargets);
+    S5P_allVol_CI = zeros(2,numTargets);
+     
+    for tt = 1:numTargets
+        
+        targetInclInds = Nuc_group_vec==tt ...
+            & Nuc_Vol_vec>=minNucVol & Nuc_Vol_vec<=maxNucVol;
+        
+        Num_S5P_mean(tt) = mean(Num_S5P_vec(targetInclInds));
+        Num_S5P_CI(:,tt) = ...
+            bootci(n_boot,@mean,Num_S5P_vec(targetInclInds));
+        
+        Nuc_S5P_median(tt) = median(Nuc_S5P_vec(targetInclInds));
+        Nuc_S5P_CI(:,tt) = ...
+            bootci(n_boot,@median,Nuc_S5P_vec(targetInclInds));
+        
+        Nuc_S2P_median(tt) = median(Nuc_S2P_vec(targetInclInds));
+        Nuc_S2P_CI(:,tt) = ...
+            bootci(n_boot,@median,Nuc_S2P_vec(targetInclInds));
+        
+        targetInclInds = Nuc_group_vec==tt;
+        
+        Nuc_ClusterNum_mean(tt) = mean(Nuc_ClusterNum_vec_unscaled(targetInclInds));
+        Nuc_ClusterNum_CI(:,tt) = ...
+           bootci(n_boot,@mean,Nuc_ClusterNum_vec_unscaled(targetInclInds));
+
+    end
+        
+    Nuc_S5P_median = Nuc_S5P_median./median(Nuc_S5P_vec);
+    Nuc_S5P_CI = Nuc_S5P_CI./median(Nuc_S5P_vec);
+    Nuc_S2P_median = Nuc_S2P_median./median(Nuc_S2P_vec);
+    Nuc_S2P_CI = Nuc_S2P_CI./median(Nuc_S2P_vec);
+    
+    Nuc_S5P_vec = Nuc_S5P_vec./median(Nuc_S5P_vec);
+    Nuc_S2P_vec = Nuc_S2P_vec./median(Nuc_S2P_vec);
+    
+    S5P_S5P_vec = S5P_S5P_vec./median(S5P_S5P_vec);
+    S5P_S2P_vec = S5P_S2P_vec./median(S5P_S2P_vec);
+    S5P_NucS5P_vec = S5P_NucS5P_vec./median(S5P_NucS5P_vec);
+    S5P_NucS2P_vec = S5P_NucS2P_vec./median(S5P_NucS2P_vec);
+    
+    S2P_S5P_vec = S2P_S5P_vec./median(S2P_S5P_vec);
+    S2P_S2P_vec = S2P_S2P_vec./median(S2P_S2P_vec);
+    S2P_NucS5P_vec = S2P_NucS5P_vec./median(S5P_NucS5P_vec);
+    S2P_NucS2P_vec = S2P_NucS2P_vec./median(S5P_NucS2P_vec);
+    
+    % --- running window plots
+   
+    numDisplays = 5;
+    subplot(numPlots,numDisplays,(pp-1).*numDisplays+1)
+
+    distributionPlot(Nuc_ClusterNum_vec_unscaled,'groups',Nuc_group_vec,...
+        'xNames',targetNames,'color',[0.6,0.6,0.6],...
+        'showMM',0,'addSpread',0)
+    hold on
+    
+    errorbar(1:numTargets,Nuc_ClusterNum_mean,...
+        Nuc_ClusterNum_CI(1,:)-Nuc_ClusterNum_mean,...
+        Nuc_ClusterNum_mean-Nuc_ClusterNum_CI(2,:),...
+        'k-o','MarkerFaceColor',[1,1,1],...
+        'LineWidth',1);
+
+    set(gca,'XLim',[0.5,numTargets+0.5],'Box','on','YLim',[-Inf,+Inf],...
+        'XTick',1:numTargets,'XTickLabel',targetNames,...
+        'XLim',[0.3,numTargets+0.8])
+
+    ylabel('Clusters/nucleus')
+    
+
+    % --- Per-cluster analysis
+
+    S5P_Num = S5P_NucClusterNum_vec.*300;
+    S5P_S5P = S5P_S5P_vec;
+    S5P_S2P = S5P_S2P_vec;
+    S5P_Vol = S5P_Vol_vec;
+    S5P_Sol = S5P_Sol_vec;
+
+
+    lowLim = round(prctile(S5P_Num,3));
+    highLim = round(prctile(S5P_Num,97));
+    numWindows = 25;
+    windowCenters = linspace(lowLim,highLim,numWindows);
+    windowWidth = (highLim-lowLim)./4.5;
+    windowIndsCell = cell(1,numWindows);
+    for ww = 1:numWindows
+        windowEdges = windowCenters(ww)+[-0.5,+0.5].*windowWidth;
+        windowInds = find(S5P_Num>=windowEdges(1) & S5P_Num<windowEdges(2));
+        windowIndsCell{ww}=windowInds;
+    end
+
+    XLimVec = [0,30];
+    subplot(numPlots,numDisplays,(pp-1).*numDisplays+2)
+    
+    mean_S5P = zeros(1,numWindows);
+    CI_S5P = zeros(2,numWindows);
+    for ww = 1:numWindows
+        windowInds = windowIndsCell{ww};
+        mean_S5P(ww) = median(S5P_S5P(windowInds));
+        CI_S5P(:,ww) = bootci(n_boot,@median,S5P_S5P(windowInds));
+        CI_S5P(:,ww) = CI_S5P(:,ww)-mean_S5P(ww);
+    end
+    
+    err_h = errorbar(...
+        windowCenters,mean_S5P,...
+        CI_S5P(1,:),CI_S5P(2,:),...
+        'ko-','LineWidth',1,'MarkerSize',3,...
+        'MarkerFaceColor',[0,0,0],'MarkerEdgeColor','none');
+    err_h.CapSize = 0;
+    err_h.Color = [0.6,0.6,0.6];
+
+    xlabel('Clusters/300 \mum^3')
+    ylabel('Cluster S5P')
+    set(gca,'XDir','reverse','YLim',[0.8,1.2],'XLim',XLimVec)
+
+    
+    
+    title(datasetNames{pp})
+    
+    subplot(numPlots,numDisplays,(pp-1).*numDisplays+3)
+
+    mean_S2P = zeros(1,numWindows);
+    CI_S2P = zeros(2,numWindows);
+    for ww = 1:numWindows
+        windowInds = windowIndsCell{ww};
+        mean_S2P(ww) = median(S5P_S2P(windowInds));
+        CI_S2P(:,ww) = bootci(n_boot,@median,S5P_S2P(windowInds));
+        CI_S2P(:,ww) = CI_S2P(:,ww)-mean_S2P(ww);
+    end
+    
+    err_h = errorbar(...
+        windowCenters,mean_S2P,CI_S2P(1,:),CI_S2P(2,:),...
+        'ko-','LineWidth',1,'MarkerSize',3,...
+        'MarkerFaceColor',[0,0,0],'MarkerEdgeColor','none');
+    err_h.CapSize = 0;
+    err_h.Color = [0.6,0.6,0.6];
+
+    xlabel('Clusters/300 \mum^3')
+    ylabel('Cluster S2P')
+    set(gca,'XDir','reverse','YLim',[0.9,1.1],'XLim',XLimVec)
+
+    
+    subplot(numPlots,numDisplays,(pp-1).*numDisplays+4)
+
+    mean_Vol = zeros(1,numWindows);
+    CI_Vol = zeros(2,numWindows);
+    for ww = 1:numWindows
+        windowInds = windowIndsCell{ww};
+        mean_Vol(ww) = median(S5P_Vol(windowInds));
+        CI_Vol(:,ww) = bootci(n_boot,@median,S5P_Vol(windowInds));
+        CI_Vol(:,ww) = CI_Vol(:,ww)-mean_Vol(ww);
+    end
+    
+    err_h = errorbar(...
+        windowCenters,mean_Vol,CI_Vol(1,:),CI_Vol(2,:),...
+        'ko-','LineWidth',1,'MarkerSize',3,...
+        'MarkerFaceColor',[0,0,0],'MarkerEdgeColor','none');
+    err_h.CapSize = 0;
+    err_h.Color = [0.6,0.6,0.6];
+
+    xlabel('Clusters/300 \mum^3')
+    ylabel('Volume [\mum^3]')
+    set(gca,'XDir','reverse','YLim',[0.125,0.15],'XLim',XLimVec)
+
+    
+    subplot(numPlots,numDisplays,(pp-1).*numDisplays+5)
+
+    mean_Sol = zeros(1,numWindows);
+    CI_Sol = zeros(2,numWindows);
+    for ww = 1:numWindows
+        windowInds = windowIndsCell{ww};
+        mean_Sol(ww) = median(S5P_Sol(windowInds));
+        CI_Sol(:,ww) = bootci(n_boot,@median,S5P_Sol(windowInds));
+        CI_Sol(:,ww) = CI_Sol(:,ww)-mean_Sol(ww);
+    end
+    
+    err_h = errorbar(...
+        windowCenters,mean_Sol,CI_Sol(1,:),CI_Sol(2,:),...
+        'ko-','LineWidth',1,'MarkerSize',3,...
+        'MarkerFaceColor',[0,0,0],'MarkerEdgeColor','none');
+    err_h.CapSize = 0;
+    err_h.Color = [0.6,0.6,0.6];
+
+    set(gca,'XDir','reverse','YLim',[0.34,0.44],'XLim',XLimVec)
+
+    ylabel('Solidity')
+    xlabel('Clusters/300 \mum^3')
+
+end
+
+
+
