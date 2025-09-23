@@ -21,7 +21,6 @@ numStoreChannels = numel(storeImgChannels);
 % Target channels for intensity quantification, applied for all objects
 quantChannels = [1,2];
 quantBlurSigma = [0,0.15];
-numQuantChannels = numel(quantChannels);
 
 nuc_segBlurSigma_nucleus = 0.6; % in microns
 nuc_segBlurSigma_BG_removal = 10; % in microns
@@ -796,7 +795,6 @@ S5P_nucClustVolCell = S5P_nucClustVolCell(validFileFlag);
 S5P_nucVolCell = S5P_nucVolCell(validFileFlag);
 S5P_allToAllDistCell = S5P_allToAllDistCell(validFileFlag);
 
-
 S2P_volCell = S2P_volCell(validFileFlag);
 S2P_solCell = S2P_solCell(validFileFlag);
 S2P_eloCell = S2P_eloCell(validFileFlag);
@@ -808,6 +806,54 @@ S2P_nucClustVolCell = S2P_nucClustVolCell(validFileFlag);
 S2P_nucVolCell = S2P_nucVolCell(validFileFlag);
 
 
+%% To prepare for sorting into conditions, introduce quality control
+% The logic is to check the intensity distributions of the large Pol II
+% clusters against the overall data set. For all files, where this
+% distribution is looking markedly different, that file will be marked for
+% not being included in the next section, where the results are sorted
+% based on experimental condition.
+
+Vol_threshold = 0.08; % in micrometers
+
+all_S5P_vols = vertcat(S5P_volCell{:});
+all_S5P_ints = vertcat(cellfun(@(xx)xx{2},S5P_intCell,...
+    'UniformOutput',false));
+all_S2P_ints = vertcat(cellfun(@(xx)xx{1},S5P_intCell,...
+    'UniformOutput',false));
+
+all_S5P_ints = vertcat(all_S5P_ints{:});
+all_S2P_ints = vertcat(all_S2P_ints{:});
+
+all_S5P_ints = all_S5P_ints(all_S5P_vols>=Vol_threshold);
+all_S2P_ints = all_S2P_ints(all_S5P_vols>=Vol_threshold);
+
+S5P_limits = prctile(all_S5P_ints,[5,95]);
+S2P_limits = prctile(all_S2P_ints,[5,95]);
+
+numValidFiles = numel(S5P_intCell);
+withinLimits_flag = false(1,numValidFiles);
+
+for ff = 1:numValidFiles
+
+    file_Vols = S5P_volCell{ff};
+    file_S5P_ints = S5P_intCell{ff}{2};
+    file_S2P_ints = S5P_intCell{ff}{1};
+
+    file_S5P_ints = file_S5P_ints(file_Vols>=Vol_threshold);
+    file_S2P_ints = file_S2P_ints(file_Vols>=Vol_threshold);
+
+    max_fraction_outside = max([
+        mean(file_S5P_ints<S5P_limits(1)),...
+        mean(file_S5P_ints>S5P_limits(2)),...
+        mean(file_S2P_ints<S2P_limits(1)),...
+        mean(file_S2P_ints>S2P_limits(2))]);
+
+    if max_fraction_outside < 0.2
+        withinLimits_flag(ff) = true;
+    end
+
+end
+
 %% Sort into conditions
 
 uniqueCondNames = unique(condNames);
@@ -816,7 +862,8 @@ fileIndsCell = cell(1,numPlotSets);
 numFiles_perCond = zeros(1,numPlotSets);
 for cc = 1:numPlotSets
 	fileIndsCell{cc} = cellfun(...
-		@(elmt)strcmp(elmt,uniqueCondNames{cc}),condNames);
+		@(elmt)strcmp(elmt,uniqueCondNames{cc}),condNames)...
+        &withinLimits_flag;
 	numFiles_perCond(cc) = sum(fileIndsCell{cc});
 end
 
@@ -994,6 +1041,149 @@ for cc = 1:numPlotSets
 	
 end
 
+
+
+%% Define conditions and genes for following analyses
+
+datasetNames = {'Uninj.','BFP','WT-actin','R62D-actin'};
+datasetStyles = {'y-','k-','r--','b:'};
+
+datasetInds = {...
+    [3,7,11,15,19],...
+    [3,7,11,15,19]-2,...
+    [3,7,11,15,19]+1,...
+    [3,7,11,15,19]-1};
+
+targets = {...
+    [1,1,1,1,1],...
+    [2,2,2,2,2],...
+    [3,3,3,3,3],...
+    [4,4,4,4,4]};
+
+numPlots = numel(datasetInds);
+
+
+
+%% Quality control for staining level differences, whole nuclei
+
+figure(1)
+clf
+
+% Display limits
+S2P_min = -100;
+S2P_max = 1800;
+S5P_min = -100;
+S5P_max = 1000;
+
+allNucVol = vertcat(sortedNucVolCell{:});
+disp('All nuclei volume percentile values:')
+disp(sprintf('5-percentile: %3.3f mum^3',prctile(allNucVol,5)))
+disp(sprintf('95-percentile: %3.3f mum^3',prctile(allNucVol,95)))
+
+% Selection limits
+minNucVol = 100; % Miminal nuclear volume
+maxNucVol = 500; % Maxinal nuclear volume
+
+for pp = 1:numPlots
+
+    % Collect all data needed to analyze this data set
+    inclDatasets = datasetInds{pp};
+    numDatasets = numel(inclDatasets);
+
+    % Plot for different differentiation time points
+
+    for kk = 1:numDatasets
+
+        cc = inclDatasets(kk);
+        thisCondName = sortedCondNames{cc};
+        tt = targets{pp}(kk);
+
+        S5P_Num_vals = [sortedS5PNumCell{cc}];
+        S2P_Num_vals = [sortedS2PNumCell{cc}];
+        Nuc_Vol_vals = [sortedNucVolCell{cc}];
+
+        Nuc_S5P_vals = [sortedNucIntCell{1}{cc}-sortedCytoIntCell{1}{cc}]';
+        Nuc_S2P_vals = [sortedNucIntCell{2}{cc}-sortedCytoIntCell{2}{cc}]';
+
+        inclInds = ...
+            sortedNucVolCell{cc}>=minNucVol ...
+            & sortedNucVolCell{cc}<=maxNucVol;
+
+        subplot(numPlots,numDatasets,(pp-1).*numDatasets+kk)
+
+        plot(Nuc_S2P_vals,Nuc_S5P_vals,'ko','MarkerSize',3,...
+            'MarkerEdgeColor','none','MarkerFaceColor',[1,0.5,0.5])
+        hold on
+        plot(Nuc_S2P_vals(inclInds),Nuc_S5P_vals(inclInds),...
+            'ko','MarkerSize',3,...
+            'MarkerEdgeColor','none','MarkerFaceColor',[0,0,0])
+        xlabel('Nuclei Pol II Ser2P')
+        ylabel('Nuclei Pol II Ser5P')
+        title(thisCondName)
+
+        set(gca,'XLim',[S2P_min,S2P_max],'YLim',[S5P_min,S5P_max])
+
+        legend('All nuclei','Accepted nuclei')
+
+    end
+
+end
+
+%% Quality control for staining level differences, Pol II clusters
+
+figure(2)
+clf
+
+Vol_threshold = 0.08; % in cubic micrometers
+
+for pp = 1:numPlots
+
+    % Collect all data needed to analyze this data set
+    inclDatasets = datasetInds{pp};
+    numDatasets = numel(inclDatasets);
+
+    % Plot for different differentiation time points
+
+    for kk = 1:numDatasets
+
+        cc = inclDatasets(kk);
+        thisCondName = sortedCondNames{cc};
+        tt = targets{pp}(kk);
+
+        S5P_nucVol_vals = sortedS5PNucVolCell{cc};
+        S5P_S5P_vals = sortedS5PIntCell{2}{cc};
+        S5P_S2P_vals = sortedS5PIntCell{1}{cc};
+        S5P_Vol_vals = sortedS5PVolCell{cc};
+
+        inclInds_VolOnly = S5P_Vol_vals>Vol_threshold;
+        inclInds = ...
+            S5P_nucVol_vals>=minNucVol ...
+            & S5P_nucVol_vals<=maxNucVol ...
+            & S5P_Vol_vals>Vol_threshold;
+
+        subplot(numPlots,numDatasets,(pp-1).*numDatasets+kk)
+
+        plot(S5P_S2P_vals(inclInds_VolOnly),...
+            S5P_S5P_vals(inclInds_VolOnly),'ko','MarkerSize',3,...
+            'MarkerEdgeColor','none','MarkerFaceColor',[1,0.5,0.5])
+        hold on
+        plot(S5P_S2P_vals(inclInds),S5P_S5P_vals(inclInds),...
+            'ko','MarkerSize',3,...
+            'MarkerEdgeColor','none','MarkerFaceColor',[0,0,0])
+        xlabel('Cluster Pol II Ser2P')
+        ylabel('Cluster Pol II Ser5P')
+        title(thisCondName)
+
+        set(gca,'XLim',[-0.5,5],'YLim',[0.5,5])
+
+        legend('From all nuclei','From accepted nuclei')
+
+    end
+
+end
+
+
+
 %% Show reasoning for different volume cutoffs
 
 Vol_threshold = 0.08;
@@ -1020,7 +1210,7 @@ numPlots = numel(datasetInds);
 
 % Plots of cluster volume distributions and phosphorylation levels
 
-n_boot = 50;
+n_boot = 5;
 
 % --- settings for obtaining volume distributions
 VV_sample_points = linspace(0,0.5,200);
@@ -1033,11 +1223,12 @@ fractionLarge_inds = [];
 fractionLarge_mean = zeros(1,numPlots);
 fractionLarge_CI = zeros(2,numPlots);
 
-figure(1)
+figure(3)
 clf
 
-figure(2)
+figure(4)
 clf
+
 
 for pp = 1:numPlots
     
@@ -1111,7 +1302,7 @@ for pp = 1:numPlots
 
     end
 
-    figure(2)
+    figure(3)
 
     subplot(numPlots,4,4.*(pp-1)+1)
     cla
@@ -1216,7 +1407,7 @@ for pp = 1:numPlots
     title(sprintf('%s, Pol II Ser2P spots',datasetNames{pp}),...
             'FontWeight','normal')
 
-    figure(3)
+    figure(4)
     clf
 
     
@@ -1244,7 +1435,7 @@ for pp = 1:numPlots
 
 end
 
-figure(3)
+figure(5)
 clf
 
 subplot(2,1,1)
@@ -1287,6 +1478,68 @@ set(gca,'XLim',[0.5,numPlots+0.5],'Box','on','YLim',[0,0.2],...
     'XLim',[0.3,numPlots+0.8])
 
 ylabel('Fraction large clusters')
+
+
+
+%% -- Overview figure
+
+gene_names = {...
+    'foxd5 (16.0%, active)','klf2b (14.5%, active)',...
+    'gadd45ga (1.5%, active)','iscub (0.7%, active)','zgc:64022 (12.6%, inactive)'};
+
+treatment_names = {...
+    'Uninj','BFP','Actin-WT','Actin-R62D',};
+
+gene_cond_inds = {...
+    [1,2,4,3]+8,...
+    [1,2,4,3]+0,...
+    [1,2,4,3]+12,...
+    [1,2,4,3]+4,...
+    [1,2,4,3]+16,...
+    };
+
+figure(2)
+clf
+
+S2P_min = 1;
+S2P_max = 1.3;
+S5P_min = 1;
+S5P_max = 1.25;
+dist_min = 0;
+dist_max = 0.8;
+
+Dist_Delta = zeros(1,5);
+S5P_Delta = zeros(1,5);
+
+for gg = 1:5
+
+    figure(2)
+    
+    
+    
+    subplot(4,5,gg+5)
+    plot(sortedS5PIntCell{1}{gene_cond_inds{gg}(2)},...
+        sortedS5PIntCell{2}{gene_cond_inds{gg}(2)},...
+        'k.')
+    set(gca,'YLim',[0,4],'XLim',[0,4])
+
+    subplot(4,5,gg+10)
+    plot(sortedS5PIntCell{1}{gene_cond_inds{gg}(4)},...
+        sortedS5PIntCell{2}{gene_cond_inds{gg}(4)},...
+        'k.')
+    set(gca,'YLim',[0,4],'XLim',[0,4])
+
+    subplot(4,5,gg+15)
+    plot(sortedS5PIntCell{1}{gene_cond_inds{gg}(3)},...
+        sortedS5PIntCell{2}{gene_cond_inds{gg}(3)},...
+        'k.')
+    set(gca,'YLim',[0,4],'XLim',[0,4])
+
+
+end
+
+
+
 
 
 
