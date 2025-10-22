@@ -796,6 +796,9 @@ S2P_nucIntCell = S2P_nucIntCell(validFileFlag);
 S2P_nucClustVolCell = S2P_nucClustVolCell(validFileFlag);
 S2P_nucVolCell = S2P_nucVolCell(validFileFlag);
 
+%% Save results on disk to make available for future analysis
+
+save('AfterObjectAnalysis.mat')
 
 %% Sort into conditions
 
