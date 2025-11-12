@@ -14,6 +14,11 @@ condLabels = {...
 condInds = (1:numel(condLabels))';
 maxNumSeries = 3;
 
+condFolderPattern = 'Cond_%02d';     % sprintf pattern used for output subfolders
+imageFilePattern = 'Image_%03d.mat'; % sprintf pattern used for output files
+% Make the appended number pattern wide enough to accomodate for all conditions
+% and images per condition (to ensure correct sorting in all environments)
+
 skipList = []; % Directories to skip, for example if already done
 % Leave empty array [] if all directories should be processed.
 useChannel_inds = [7,5,4,2]; % Hoechst, Alexa 488, Alexa 594, STAR Red
@@ -43,7 +48,8 @@ for cc = 1:numDirs
     	condInd = condInds(cc);
         
 		stackCounter = 0;
-		mkdir(sprintf('./%s/Cond_%d',extractTargetFolder,cc))
+		condSubFolder = sprintf(condFolderPattern,cc);
+		mkdir(sprintf('./%s/%s',extractTargetFolder,condSubFolder))
 		
 		for ff = 1:numFiles
 			
@@ -68,8 +74,9 @@ for cc = 1:numDirs
                 pixelSize = pixelSize(1);
 				zStepSize = reader.getZStepSize(ss);
                 imgSize = reader.getStackSizeXYZ(ss);
-				save(sprintf('./%s/Cond_%d/Image_%d.mat',...
-					extractTargetFolder,cc,stackCounter),...
+				imgFile = sprintf(imageFilePattern,stackCounter);
+				save(sprintf('./%s/%s/%s',...
+					extractTargetFolder,condSubFolder,imgFile),...
 					'imgStack','imgSize','pixelSize','zStepSize',...
 					'condInd','condName','-v7.3')
 
