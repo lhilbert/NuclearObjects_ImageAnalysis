@@ -167,8 +167,8 @@ save_file = "AfterObjectAnalysis.mat";
 
 t1 = tic;
 
-parfor ff = batch_ff1:batch_ff2
-% for ff = batch_ff1:batch_ff2
+% parfor ff = batch_ff1:batch_ff2
+for ff = batch_ff1:batch_ff2
 
 	t2 = tic;
 
@@ -249,8 +249,8 @@ parfor ff = batch_ff1:batch_ff2
 	    imagesc(squeeze(NucSegMask(:,:,ceil(size(segImg,3)./2))))
 	    axis tight equal
 
-        % Uncomment the following two lines, and remove the par in parfor above,
-        % if you want to check the extracted images one by one
+        % Uncomment the following two lines, and make sure you're in serial loop
+        % processing mode, if you want to check the extracted images one by one
 
         % fprintf('File name: %s\n',thisFilePath)
         % waitforbuttonpress
@@ -515,7 +515,8 @@ parfor ff = batch_ff1:batch_ff2
                     axis tight equal
                     set(gca,'Colormap',gray)
 
-                    % Uncomment this waitforbuttonpress command to see the
+                    % Uncomment the following line, and make sure you're in
+                    % serial loop processing mode, if you want to see the
                     % segmentation results for the two types of foci
 
                     % waitforbuttonpress
@@ -819,7 +820,7 @@ parfor ff = batch_ff1:batch_ff2
                 S5P_centralSlices_store{nn} = {};
                 S5P_cent_store{nn} = [];
                 S5P_nucVolume{nn} = [];
-                S5P_nucClustVolume{nn} = {};
+                S5P_nucClustVolume{nn} = [];
 
                 S2P_volume{nn} = [];
                 S2P_solidity{nn} = [];
@@ -827,7 +828,7 @@ parfor ff = batch_ff1:batch_ff2
                 S2P_centralSlices_store{nn} = {};
                 S2P_cent_store{nn} = [];
                 S2P_nucVolume{nn} = [];
-                S2P_nucClustVolume{nn} = {};
+                S2P_nucClustVolume{nn} = [];
 
                 for qq = 1:numQuantChannels
                     S5P_intensity{qq,nn} = [];
@@ -928,10 +929,10 @@ S2P_nucClustVolCell = S2P_nucClustVolCell(validFileFlag);
 S2P_nucVolCell = S2P_nucVolCell(validFileFlag);
 
 %% Delete parallel pool
-% if exist("pp", "var")
-%     delete(pp)
-% end
-% clear pp pc
+if exist("pp", "var")
+    delete(pp)
+end
+clear pp pc
 
 %% Save results on disk to make available for future analysis
 
@@ -953,15 +954,17 @@ clear( ...
     "Solidity_array", "Volume_array", "bin_centers", "bin_counts", "bin_edges", ...
     "boundingBox", "boxArray", "centerInd", "center_z", "centroid_1", ...
     "centroid_2", "centroid_coords", "channelInd", "color", "comps", "coreMask", ...
-    "cytoMask", "dbscan_inds", "ff", "ii", "imgSize", "img_limits", ...
-    "inclNucInds", "minPixels", "nn", "nuc_seg_thresh", "numNuclei", "numPxls", ...
-    "num_inds", "object_nn", "pixelSize", "props", "qq", "quantImg", ...
-    "quantProps", "quant_subImage", "se", "segImg", "seg_intensities", ...
-    "seg_mean", "seg_std", "subImgSize", "t1", "t2", "thisCondInd", ...
-    "thisCondName", "thisFilePath", "thisImage", "thisMask", "thisProps", ...
-    "unique_inds", "updated_comps", "zStepSize");
+    "cytoMask", "dbscan_inds", "ff", "ii", "imgSize", "imgStack", "img_limits", ...
+    "inclNucInds", "loadStruct", "minPixels", "nn", "nuc_seg_thresh", ...
+    "numNuclei", "numPxls", "num_inds", "object_nn", "pixelSize", "props", "qq", ...
+    "quantImg", "quantProps", "quant_subImage", "se", "segImg", ...
+    "seg_intensities", "seg_mean", "seg_std", "subImgSize", "t1", "t2", ...
+    "thisCondInd", "thisCondName", "thisFilePath", "thisImage", "thisMask", ...
+    "thisProps", "unique_inds", "updated_comps", "zStepSize");
 
-save('AfterObjectAnalysis.mat')
+% make sure not to use the v7.3 file format, it would become GIGANTIC because of
+% the nested cell structures
+save(save_file)
 
 %% Sort into conditions
 
