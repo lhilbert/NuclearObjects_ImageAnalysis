@@ -7,6 +7,18 @@
 % The channels to be extracted can be specified. Only the required image data
 % are actually read from the source file.
 %
+% The skip list parameter can be used to limit processing of source folders.
+% This can be used if new data is included at some later point. It can also be
+% used for batch processing, as follows. For this, the skip list is initialized
+% with all source folders, and then a different subset is excluded from the skip
+% list for each batch.
+%    skipList = condInds;
+%    skipList( 1: 4) = []; % Batch 1
+%    % skipList( 5: 8) = []; % Batch 2
+%    % skipList( 9:12) = []; % Batch 3
+%    % skipList(13:16) = []; % Batch 4
+% This is useful to create multiple jobs on a compute cluster.
+%
 % The script requires the BioFormats toolbox and the OMEImageReaderLazy class to
 % be accessible on the MATLAB path. They can be found here:
 % - BioFormats toolbox: www.openmicroscopy.org/bio-formats/
