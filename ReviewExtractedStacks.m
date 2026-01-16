@@ -1,26 +1,38 @@
+%% Review extracted experiment image stacks
+%
+% This script loads image data stacks one by one and shows the central xy
+% section (from each extracted channel) for visual review. It works on
+% single-stack MATLAB files that were previously extracted from the original
+% source files.
+
 clear all
 
-% Specify the directory that contains the extraced files from the last
-% step, where you extracted from the raw files obtained from the microscope
-sourceDirectory = './ExtractedStacks/**/';
-sourceDirectory = '/Users/lennarthilbert/Documents/ActinPerturbation_OPExtractedData/ExtractedStacks/**/';
+%% Process parameter section
+
+% source directory containing the extraced single-stack MATLAB files
+sourceDirectory = fullfile('.', 'ExtractedStacks', '**');
+
+% file name pattern for the single-stack MATLAB files
+imageFileSelector = '*Image*.mat';
+
+%% Main script section
 
 % --- file read and display procedure begins here
 
-listing = rdir([sourceDirectory,'*Image*.mat']);
+listing = rdir(fullfile(sourceDirectory, '*Image*.mat'));
 numFiles = numel(listing);
 
 % Condition index retrieval
-condInds = [];
-condNames = {};
+condInds = zeros(1, numFiles);
+condNames = cell(1, numFiles);
 for ff = 1:numFiles
 	thisFilePath = listing(ff).name;
 	thisCondInd = load(thisFilePath,'condInd');
 	thisCondInd = thisCondInd.condInd;
-	condInds = [condInds,thisCondInd];
+	condInds(ff) = thisCondInd;
 	thisCondName = load(thisFilePath,'condName');
 	thisCondName = thisCondName.condName;
-	condNames = [condNames,thisCondName];
+	condNames{ff} = thisCondName;
 end
 
 % --- analyze image stacks one by one
