@@ -85,33 +85,34 @@ for ff = 1:numFiles
     waitforbuttonpress
     
 end
- 1
-            title(sprintf('Condition name: %s',thisCondName),...
-                'interpreter','none')
-        end
-        axis tight equal
-        
-    end
-    
-    if batchExportFlag
 
-        [condSubFolder,exportFileName] = fileparts(listing(ff).name);
-        [~,condSubFolder] = fileparts(condSubFolder);
-        exportFolderPath = fullfile(exportDirectory,condSubFolder);
-        if ~isfolder(exportFolderPath)
-            mkdir(exportFolderPath);
-        end
-        exportFileName = sprintf('%s.pdf',exportFileName);
-        exportFilePath = fullfile(exportFolderPath,exportFileName);
-        exportgraphics(gcf,exportFilePath);
-        exportFileName = replace(exportFileName,'pdf','png');
-        exportFilePath = fullfile(exportFolderPath,exportFileName);
-        exportgraphics(gcf,exportFilePath);
-
-    else
-
-        waitforbuttonpress
-
-    end
-
-end
+%  1
+%             title(sprintf('Condition name: %s',thisCondName),...
+%                 'interpreter','none')
+%         end
+%         axis tight equal
+%
+%     end
+%
+%     if batchExportFlag
+%
+%         [condSubFolder,exportFileName] = fileparts(listing(ff).name);
+%         [~,condSubFolder] = fileparts(condSubFolder);
+%         exportFolderPath = fullfile(exportDirectory,condSubFolder);
+%         if ~isfolder(exportFolderPath)
+%             mkdir(exportFolderPath);
+%         end
+%         exportFileName = sprintf('%s.pdf',exportFileName);
+%         exportFilePath = fullfile(exportFolderPath,exportFileName);
+%         exportgraphics(gcf,exportFilePath);
+%         exportFileName = replace(exportFileName,'pdf','png');
+%         exportFilePath = fullfile(exportFolderPath,exportFileName);
+%         exportgraphics(gcf,exportFilePath);
+%
+%     else
+%
+%         waitforbuttonpress
+%
+%     end
+%
+% end
