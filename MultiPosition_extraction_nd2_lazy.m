@@ -1,31 +1,71 @@
+%% Extract experiment image data to MATLAB files
+%
+% This script extracts the specified image data from the experiment image data
+% files and exports separate (multi-channel) stacks to MATLAB files for
+% convenient access from subsequent MATLAB analysis scripts.
+%
+% The channels to be extracted can be specified. Only the required image data
+% are actually read from the source file.
+%
+% The script requires the BioFormats toolbox and the OMEImageReaderLazy class to
+% be accessible on the MATLAB path. They can be found here:
+% - BioFormats toolbox: www.openmicroscopy.org/bio-formats/
+% - OMEImageReaderLazy: <to be done>
+%
+% If the MATLAB path can't be adjusted in the MATLAB client software (e.g. on a
+% compute cluster), add the respective paths during runtime.
+
+% addpath(fullfile(".", "bfmatlab"));
+% addpath(fullfile(".", "OMEImageReaderLazy"));
+
 clear all
 
+%% Process parameter section
+
+% switch figure plots on/off (central xy section, all channels, pauses script)
 plotFlag = true;
 
+% image data source directories
 sourceDirectories = { ...
-    './ImageData/Folder_2/',...
-    './ImageData/Folder_1/',...
+    fullfile('.', 'ImageData', 'Folder_1/'), ...
+    fullfile('.', 'ImageData', 'Folder_2/'), ...
     };
-extractTargetFolder = './ExtractedStacks';
+
+% condition labels (number must match source directories)
 condLabels = {...
-    'Example 2',...
-    'Example 1',...
+    'Example 1', ...
+    'Example 2', ...
     };
+
+% condition indexing (number must match source directories)
 condInds = (1:numel(condLabels))';
-maxNumSeries = 3;
 
-condFolderPattern = 'Cond_%02d';     % sprintf pattern used for output subfolders
-imageFilePattern = 'Image_%03d.mat'; % sprintf pattern used for output files
-% Make the appended number pattern wide enough to accomodate for all conditions
-% and images per condition (to ensure correct sorting in all environments)
+% limit the number of extracted stacks per file
+maxNumSeries = Inf;
 
-skipList = []; % Directories to skip, for example if already done
-% Leave empty array [] if all directories should be processed.
+% extracted data output root folder
+extractTargetFolder = fullfile('.', 'ExtractedStacks');
+
+% sprintf name pattern for output sub-folder (one per experiment condition)
+% (make number pattern wide enough to accomodate for all conditions, to ensure
+% correct sorting in all OS environments)
+condFolderPattern = 'Cond_%02d';
+
+% sprintf name pattern for output files (one per stack)
+% (make number pattern wide enough to accomodate for all stacks per condition,
+% to ensure correct sorting in all OS environments)
+imageFilePattern = 'Image_%03d.mat';
+
+% directories to skip, for example if already done
+% (leave empty array [] if all directories should be processed)
+skipList = [];
+
+% channels to be extracted
 useChannel_inds = [7,5,4,2]; % Hoechst, Alexa 488, Alexa 594, STAR Red
 
-numChannels = numel(useChannel_inds);
-scaleChannels = {[-Inf,Inf],[-Inf,Inf],[-Inf,Inf],[-Inf,Inf]};
+%% Main script section
 
+numChannels = numel(useChannel_inds);
 numDirs = numel(sourceDirectories);
 
 for cc = 1:numDirs
@@ -100,9 +140,9 @@ for cc = 1:numDirs
 
                     end
 
-                    disp(sprintf( ...
-                        'Directory number %d, Condition %s, File %d/%d, Image %d/%d.', ...
-                        cc,condLabels{condInds(cc)},ff,numFiles,ss,numSeries))
+                    fprintf( ...
+                        'Directory number %d, Condition %s, File %d/%d, Image %d/%d.\n', ...
+                        cc,condLabels{condInds(cc)},ff,numFiles,ss,numSeries);
 
                     waitforbuttonpress
 
