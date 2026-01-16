@@ -9,11 +9,17 @@ clear all
 
 %% Process parameter section
 
+% switch figure plot export on/off (script pauses if off)
+batchExportFlag = true;
+
 % source directory containing the extraced single-stack MATLAB files
 sourceDirectory = fullfile('.', 'ExtractedStacks', '**');
 
 % file name pattern for the single-stack MATLAB files
 imageFileSelector = '*Image*.mat';
+
+% review plot output root folder (sub-folders are created as in image folder)
+exportDirectory = fullfile('..', '..', 'ReviewPlots');
 
 %% Main script section
 
@@ -28,11 +34,9 @@ condNames = cell(1, numFiles);
 for ff = 1:numFiles
 	thisFilePath = listing(ff).name;
 	thisCondInd = load(thisFilePath,'condInd');
-	thisCondInd = thisCondInd.condInd;
-	condInds(ff) = thisCondInd;
+	condInds(ff) = thisCondInd.condInd;
 	thisCondName = load(thisFilePath,'condName');
-	thisCondName = thisCondName.condName;
-	condNames{ff} = thisCondName;
+	condNames{ff} = thisCondName.condName;
 end
 
 % --- analyze image stacks one by one
@@ -67,12 +71,10 @@ for ff = 1:numFiles
     thisCondName = condNames{ff};
 	thisFilePath = listing(ff).name;
 	
-	loadStruct = load(thisFilePath,...
-		'imgStack','imgSize','pixelSize','zStepSize');
-	imgStack = loadStruct.imgStack;
-	imgSize = loadStruct.imgSize;
-	pixelSize = loadStruct.pixelSize;
-	zStepSize = loadStruct.zStepSize;
+    fprintf('File name: %s\n',thisFilePath)
+
+    clear imgStack imgSize pixelSize zStepSize;
+	load(thisFilePath,'imgStack','imgSize','pixelSize','zStepSize');
     centralSlice = round(imgSize(3)./2);
     numChannels = numel(imgStack);
 	
@@ -93,38 +95,25 @@ for ff = 1:numFiles
         
     end
     
-    fprintf('File name: %s\n',thisFilePath)
-    waitforbuttonpress
-    
-end
+    if batchExportFlag
 
-%  1
-%             title(sprintf('Condition name: %s',thisCondName),...
-%                 'interpreter','none')
-%         end
-%         axis tight equal
-%
-%     end
-%
-%     if batchExportFlag
-%
-%         [condSubFolder,exportFileName] = fileparts(listing(ff).name);
-%         [~,condSubFolder] = fileparts(condSubFolder);
-%         exportFolderPath = fullfile(exportDirectory,condSubFolder);
-%         if ~isfolder(exportFolderPath)
-%             mkdir(exportFolderPath);
-%         end
-%         exportFileName = sprintf('%s.pdf',exportFileName);
-%         exportFilePath = fullfile(exportFolderPath,exportFileName);
-%         exportgraphics(gcf,exportFilePath);
-%         exportFileName = replace(exportFileName,'pdf','png');
-%         exportFilePath = fullfile(exportFolderPath,exportFileName);
-%         exportgraphics(gcf,exportFilePath);
-%
-%     else
-%
-%         waitforbuttonpress
-%
-%     end
-%
-% end
+        [condSubFolder,exportFileName] = fileparts(listing(ff).name);
+        [~,condSubFolder] = fileparts(condSubFolder);
+        exportFolderPath = fullfile(exportDirectory,condSubFolder);
+        if ~isfolder(exportFolderPath)
+            mkdir(exportFolderPath);
+        end
+        exportFileName = sprintf('%s.pdf',exportFileName);
+        exportFilePath = fullfile(exportFolderPath,exportFileName);
+        exportgraphics(gcf,exportFilePath);
+        exportFileName = replace(exportFileName,'pdf','png');
+        exportFilePath = fullfile(exportFolderPath,exportFileName);
+        exportgraphics(gcf,exportFilePath);
+
+    else
+
+        waitforbuttonpress
+
+    end
+
+end
