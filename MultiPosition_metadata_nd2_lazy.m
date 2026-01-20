@@ -36,7 +36,7 @@ condLabels = [ ...
 condInds = (1:numel(condLabels))';
 
 % metadata output file
-metadataFile = fullfile(".", "metadata_temp.csv");
+metadataFile = fullfile(".", "ExtractedStacks", "metadata_temp.csv");
 
 %% Main script section
 
@@ -85,6 +85,11 @@ for cc = 1:numDirs
 
 	end
 
+end
+
+folder = fileparts(metadataFile);
+if ~isfolder(folder)
+    mkdir(folder);
 end
 
 writetable(metadataTable, metadataFile);
