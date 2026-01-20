@@ -4,6 +4,10 @@
 % section (from each extracted channel) for visual review. It works on
 % single-stack MATLAB files that were previously extracted from the original
 % source files.
+%
+% The section images can either be reviewed during script execution, or they can
+% be created and saved to a separate folder for later review. The review images
+% can be useful for sanity-checking the extracted data.
 
 clear all
 
@@ -19,7 +23,7 @@ sourceDirectory = fullfile('.', 'ExtractedStacks', '**');
 imageFileSelector = '*Image*.mat';
 
 % review plot output root folder (sub-folders are created as in image folder)
-exportDirectory = fullfile('..', '..', 'ReviewPlots');
+exportDirectory = fullfile('.', 'ReviewPlots');
 
 %% Main script section
 
