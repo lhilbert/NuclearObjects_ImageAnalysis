@@ -1,23 +1,49 @@
+%% Extract RNA polymerase II cluster features
+%
+% This script analyses the experiment image data for RNA polymerase II (Pol II)
+% clusters and calculates some basic features for each cluster. Two types of Pol
+% II clusters are extracted:
+% - Pol II S5P clusters (Serine 5-phosphorylated Pol II, "recruited Pol II") and
+% - Pol II S2P clusters (Serine 2-phosphorylated Pol II, "elongating Pol II").
+% The Pol II types are labeled in separate image channels, a third channel
+% contains nucleus information. The extracted clusters of both types are limited
+% to the nuclei regions.
+%
+% The segmentation of nuclei and Pol II clusters can/must be finely tuned by the
+% available control parameters in the process parameters section.
+%
+% Notably, the script provides an easy way to split the processing into batches
+% (for example for separate processing in compute cluster jobs). Batch
+% processing is controlled by two parameters, that specify the total batch count
+% and the current batch index. If batch processing is used, the batch count
+% parameter must remain unchanged for each single batch (because it is used to
+% implicitly calculate the files to be processed in each batch). The default
+% setting is a value of 1 for both parameters (indicating that all files are
+% processed in a single batch):
+%    batch_count = 1;
+%    batch_index = 1;
+% Care must be taken that each batch process writes its results in a separate
+% result file; a script to recombine the batch results is provided separately.
+
 clear all
 
-% Switch for graphical output
-% plotFlag = true;
+%% Process parameter section
+
+% switch figure plots on/off (central xy section, pauses script)
 plotFlag = false;
 
-% Specify the directory that contains the extraced files from the last
-% step, where you extracted from the raw files obtained from the microscope
-sourceDirectory = fullfile('.','ExtractedStacks','**');
-% sourceDirectory = fullfile('.','ExtractedStacks','Cond_15');
+% source directory containing the extraced single-stack MATLAB files
+sourceDirectory = fullfile('.', 'ExtractedStacks', '**');
 
 % Channels for segmentation
 NucSegChannel = 1; % Channel used to detect nuclei
 S5P_SegChannel = 4; % Channel used to detect Pol II S5P clusters
 S2P_SegChannel = 3; % Channel used to detect Pol II S2P clusters
 
-% Save images of the clusters
-ImgSquareExtension = 0; % pixels for cut-out image extension, set 0 for no images
-% Which image channels to store in example images
+% image channels to store (for debugging or later visualization)
 storeImgChannels = [];
+% radius of area around clusters to store
+ImgSquareExtension = 0; % pixels for cut-out image extension (0 for no images)
 
 % Target channels for intensity quantification, applied for all objects
 quantChannels = [2,3,4]; % Hoechst, A488 (K27ac), A594 (Ser2P), A647 (Ser5P)
@@ -58,10 +84,13 @@ S2P_seg_numStdDev = 2.25; % number of standard deviations in robust threshold
 S5P_minVol = 0.005; % cubic microns
 S2P_minVol = 0.005; % cubic microns
 
-% end of analysis parameter section, do not change anything else in
-% this section, all necessary parameters are listed above
+% total count of batches (use 1 to process entire data in one run)
+batch_count = 1;
+% current batch index
+batch_index = 1;
 
-
+% extracted cluster data output file
+save_file = fullfile(".", "NuclearClusterFeatures", "AfterObjectAnalysis.mat");
 
 %% Initialize the cluster object for true parallel execution
 
@@ -94,7 +123,6 @@ S2P_minVol = 0.005; % cubic microns
 numStoreChannels = numel(storeImgChannels);
 numQuantChannels = numel(quantChannels);
 
-% listing = rdir([sourceDirectory,'*Image*.mat']);
 listing = rdir(fullfile(sourceDirectory,'*Image*.mat'));
 numFiles = numel(listing);
 
@@ -126,14 +154,13 @@ nuc_medianVolCell = cell(1,numFiles);
 perNuc_countCell = cell(1,numFiles);
 perNuc_volCell = cell(1,numFiles);
 
-
 % Variable to store the pixel sizes
 S5P_xyVoxelSizeCell = cell(1,numFiles);
 S5P_zVoxelSizeCell = cell(1,numFiles);
 S2P_xyVoxelSizeCell = cell(1,numFiles);
 S2P_zVoxelSizeCell = cell(1,numFiles);
 
-% Variables to store properties of objects inside nuclei
+% Variables to store properties of S5P objects inside nuclei
 S5P_volCell = cell(1,numFiles);
 S5P_solCell = cell(1,numFiles);
 S5P_eloCell = cell(1,numFiles);
@@ -144,7 +171,7 @@ S5P_nucIntCell = cell(1,numFiles);
 S5P_nucVolCell = cell(1,numFiles);
 S5P_nucClustVolCell = cell(1,numFiles);
 
-
+% Variables to store properties of S2P objects inside nuclei
 S2P_volCell = cell(1,numFiles);
 S2P_solCell = cell(1,numFiles);
 S2P_eloCell = cell(1,numFiles);
@@ -155,14 +182,10 @@ S2P_nucIntCell = cell(1,numFiles);
 S2P_nucVolCell = cell(1,numFiles);
 S2P_nucClustVolCell = cell(1,numFiles);
 
-
 % File index batches
-batch_count = 1;
 batch_size = numFiles / batch_count;
-batch_index = 1;
 batch_ff1 = round((batch_index - 1) * batch_size) + 1;
 batch_ff2 = round((batch_index) * batch_size);
-save_file = "AfterObjectAnalysis.mat";
 
 
 t1 = tic;
@@ -961,6 +984,12 @@ clear( ...
     "seg_intensities", "seg_mean", "seg_std", "subImgSize", "t1", "t2", ...
     "thisCondInd", "thisCondName", "thisFilePath", "thisImage", "thisMask", ...
     "thisProps", "unique_inds", "updated_comps", "zStepSize");
+
+folder = fileparts(save_file);
+if ~isfolder(folder)
+    mkdir(folder);
+end
+clear folder;
 
 % make sure not to use the v7.3 file format, it would become GIGANTIC because of
 % the nested cell structures
