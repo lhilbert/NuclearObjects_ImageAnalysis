@@ -92,33 +92,10 @@ batch_index = 1;
 % extracted cluster data output file
 save_file = fullfile(".", "NuclearClusterFeatures", "AfterObjectAnalysis.mat");
 
-%% Initialize the cluster object for true parallel execution
+% end of analysis parameter section, do not change anything else, all necessary
+% parameters are listed above
 
-% (this code does not necessarily reflect what MathWorks suggests for compute
-% cluster execution; it is mainly from the MATLAB page on the bwUniCluster wiki;
-% however, setting the number of workers needed some change, otherwise it was
-% always only 1; increasing the number of tasks instead would also be possible,
-% but would require more work in the loop code, similar to how MPI works)
-
-% % create a local cluster object
-% pc = parcluster('local');
-%
-% % get the number of dedicated cores from environment
-% pc.NumWorkers = str2double(getenv('SLURM_CPUS_PER_TASK'));
-% % pc.NumWorkers = str2double(getenv('SLURM_NPROCS'));
-%
-% % explicitly set the JobStorageLocation to the tmp directory that is unique to each cluster job (and is on local, fast scratch)
-% parpool_tmpdir = [getenv('TMP'),'/.matlab/local_cluster_jobs/slurm_jobID_',getenv('SLURM_JOB_ID')];
-% mkdir(parpool_tmpdir);
-% pc.JobStorageLocation = parpool_tmpdir;
-% clear parpool_tmpdir
-%
-% disp(pc)
-%
-% % start the parallel pool
-% pp = parpool(pc);
-
-%% Analysis procedure begins here
+%% Main script section
 
 numStoreChannels = numel(storeImgChannels);
 numQuantChannels = numel(quantChannels);
@@ -950,12 +927,6 @@ S2P_intCell = S2P_intCell(validFileFlag);
 S2P_nucIntCell = S2P_nucIntCell(validFileFlag);
 S2P_nucClustVolCell = S2P_nucClustVolCell(validFileFlag);
 S2P_nucVolCell = S2P_nucVolCell(validFileFlag);
-
-%% Delete parallel pool
-if exist("pp", "var")
-    delete(pp)
-end
-clear pp pc
 
 %% Save results on disk to make available for future analysis
 
