@@ -44,9 +44,23 @@ metadataFile = fullfile(".", "ExtractedStacks", "metadata_temp.csv");
 %% Main script section
 
 % metadata result table
-metadataTable = table(Size=[0,13], ...
-    VariableNames=["FileName","CondName","CondInd","SeriesTotal","SeriesInd","SizeC","SizeX","SizeY","SizeZ","SizeT","VoxelSizeX","VoxelSizeY","VoxelSizeZ"], ...
-    VariableTypes=["string","string","int32","int32","int32","int32","int32","int32","int32","int32","double","double","double"]);
+tabVars = [ ...
+    "FileName",    "string"; ...
+    "CondName",    "string"; ...
+    "CondInd",     "int32"; ...
+    "SeriesTotal", "int32"; ...
+    "SeriesInd",   "int32"; ...
+    "SizeC",       "int32"; ...
+    "SizeX",       "int32"; ...
+    "SizeY",       "int32"; ...
+    "SizeZ",       "int32"; ...
+    "SizeT",       "int32"; ...
+    "VoxelSizeX",  "double"; ...
+    "VoxelSizeY",  "double"; ...
+    "VoxelSizeZ",  "double"; ...
+    ]';
+tabSize = [0, size(tabVars, 2)];
+metadataTable = table(Size=tabSize, VariableNames=tabVars(1,:), VariableTypes=tabVars(2,:));
 
 numDirs = numel(sourceDirectories);
 
@@ -65,11 +79,11 @@ for cc = 1:numDirs
 
 	for ff = 1:numFiles
 
-		combined_filepath = fullfile(listing(ff).folder, listing(ff).name);
+		filepath = fullfile(listing(ff).folder, listing(ff).name);
 
-		fprintf("File %d of %d (%s)\n", ff, numFiles, combined_filepath)
+		fprintf("File %d of %d (%s)\n", ff, numFiles, filepath)
 
-        reader = OMEImageReaderLazy(combined_filepath);
+        reader = OMEImageReaderLazy(filepath);
         numSeries = reader.getNumSeries(); % Fast, uses metadata only
 
         for ss = 1:numSeries
@@ -81,7 +95,21 @@ for cc = 1:numDirs
             numTime = reader.getSizeT(ss);
 		 	voxelSize = [reader.getPixelSizeXY(ss), reader.getZStepSize(ss)];
 
-            metadataTable(end + 1, :) = {string(combined_filepath), string(condName), condInd, numSeries, ss, numChannels, imgSize(1), imgSize(2), imgSize(3), numTime, voxelSize(1), voxelSize(2), voxelSize(3)};
+            metadataTable(end + 1, :) = { ...
+                string(filepath), ...   % FileName
+                string(condName), ...   % CondName
+                condInd, ...            % CondInd
+                numSeries, ...          % SeriesTotal
+                ss, ...                 % SeriesInd
+                numChannels, ...        % SizeC
+                imgSize(1), ...         % SizeX
+                imgSize(2), ...         % SizeY
+                imgSize(3), ...         % SizeZ
+                numTime, ...            % SizeT
+                voxelSize(1), ...       % VoxelSizeX
+                voxelSize(2), ...       % VoxelSizeY
+                voxelSize(3), ...       % VoxelSizeZ
+                };
 
         end
         reader.close(); % Always close reader after use!
