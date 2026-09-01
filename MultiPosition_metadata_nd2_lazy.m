@@ -35,6 +35,9 @@ condLabels = [ ...
 % condition indexing (number must match source directories)
 condInds = (1:numel(condLabels))';
 
+% file name pattern to look for
+fileSelector = "*.nd2";
+
 % metadata output file
 metadataFile = fullfile(".", "ExtractedStacks", "metadata_temp.csv");
 
@@ -53,7 +56,7 @@ for cc = 1:numDirs
 
 	fprintf("Directory %d of %d (%s)\n", cc, numDirs, thisDir)
 
-	listing = rdir(char(fullfile(thisDir, "*.nd2")), '~contains(name,''._'')');
+	listing = dir(fullfile(thisDir, "**", fileSelector));
 
 	numFiles = numel(listing);
 
@@ -62,7 +65,7 @@ for cc = 1:numDirs
 
 	for ff = 1:numFiles
 
-		combined_filepath = fullfile(listing(ff).name);
+		combined_filepath = fullfile(listing(ff).folder, listing(ff).name);
 
 		fprintf("File %d of %d (%s)\n", ff, numFiles, combined_filepath)
 
