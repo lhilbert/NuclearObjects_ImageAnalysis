@@ -80,15 +80,12 @@ for cc = 1:numDirs
 	for ff = 1:numFiles
 
 		filepath = fullfile(listing(ff).folder, listing(ff).name);
-
-		fprintf("File %d of %d (%s)\n", ff, numFiles, filepath)
-
         reader = OMEImageReaderLazy(filepath);
         numSeries = reader.getNumSeries(); % Fast, uses metadata only
 
+		fprintf("File %d of %d (%s, contains %d series)\n", ff, numFiles, filepath, numSeries)
+
         for ss = 1:numSeries
-            
-            fprintf("Series %d of %d\n", ss, numSeries)
 
             numChannels = reader.getNumChannels(ss);
             imgSize = reader.getStackSizeXYZ(ss);
@@ -112,6 +109,7 @@ for cc = 1:numDirs
                 };
 
         end
+
         reader.close(); % Always close reader after use!
 
 	end
