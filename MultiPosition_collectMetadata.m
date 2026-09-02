@@ -28,32 +28,22 @@ dataRootDirectory = fullfile("path", "to", "data");
 % experiment parameters; those must then be specified as shown below
 fileSelector = fullfile(dataRootDirectory, "Data_{P1}", "{P2}{P3}*.nd2");
 
-% experiment parameter specifications as structs with the following fields:
-%   - name: (string scalar, without spaces)
-%       descriptive name of the parameter (appears in the metadata table head)
-%   - items: string array with three columns
-%       column 1: descriptive name for each parameter expression
-%       column 2: filepath-encoded representation in the source data files
-%       column 3: filepath-encoded representation in the extracted stack files
-experimentParameters(1).name = "Day";
-experimentParameters(1).items = [ ...
-	"2026-Jan-01", "010126", "Day1"; ...
-	"2026-Feb-28", "280226", "Day2"; ...
-	];
-experimentParameters(2).name = "Condition";
-experimentParameters(2).items = [ ...
-	"Control"    , "Ctrl"  , "Cond0"; ...
-	"Condition 1", "Shake" , "Cond1"; ...
-	"Condition 2", "Rattle", "Cond2"; ...
-	"Condition 3", "Roll"  , "Cond3"; ...
-	"Condition 4", "Heat"  , "Cond4"; ...
-	"Condition 5", "Freeze", "Cond5"; ...
-	];
-experimentParameters(3).name = "CellLine";
-experimentParameters(3).items = [ ...
-	"Cell line 1", "A", "Cell1"; ...
-	"Cell line 2", "B", "Cell2"; ...
-	];
+% experiment data using the DatasetFileManager class
+fileManager = DatasetFileManager();
+fileManager = fileManager.addParameter("Day");
+fileManager = fileManager.addLabel("Day", "2026-Jan-01", "010126", "Day1");
+fileManager = fileManager.addLabel("Day", "2026-Feb-28", "280226", "Day2");
+fileManager = fileManager.addParameter("Condition");
+fileManager = fileManager.addLabel("Condition", "Control"    , "Ctrl"  , "Cond0");
+fileManager = fileManager.addLabel("Condition", "Condition 1", "Shake" , "Cond1");
+fileManager = fileManager.addLabel("Condition", "Condition 2", "Rattle", "Cond2");
+fileManager = fileManager.addLabel("Condition", "Condition 3", "Roll"  , "Cond3");
+fileManager = fileManager.addLabel("Condition", "Condition 4", "Heat"  , "Cond4");
+fileManager = fileManager.addLabel("Condition", "Condition 5", "Freeze", "Cond5");
+fileManager = fileManager.addParameter("CellLine");
+fileManager = fileManager.addLabel("CellLine", "Cell line 1", "A", "Cell1");
+fileManager = fileManager.addLabel("CellLine", "Cell line 2", "B", "Cell2");
+fileManager.OriginalFilepathPattern = fileSelector;
 
 % metadata output file
 metadataFile = fullfile(dataRootDirectory, "metadata.csv");
@@ -61,72 +51,37 @@ metadataFile = fullfile(dataRootDirectory, "metadata.csv");
 %% Helper functions
 
 % creates the result metadata table structure (including experiment parameters)
-function tab = init_metadata_table(par_struct)
-    parVars = [ ...
-        [par_struct.name]; ...
-        compose("%sFileDesc", [par_struct.name]); ...
-        ];
+function tab = init_metadata_table(tab_par_combos)
+    par_names = string(tab_par_combos.Properties.VariableNames');
+    par_types = tab_par_combos.Properties.VariableTypes';
     tabVars = [ ...
-        "Filepath",    "string"; ...
-        parVars(:),    repmat("string",numel(parVars),1); ...
-        "SeriesTotal", "int32"; ...
-        "SeriesInd",   "int32"; ...
-        "SizeC",       "int32"; ...
-        "SizeX",       "int32"; ...
-        "SizeY",       "int32"; ...
-        "SizeZ",       "int32"; ...
-        "SizeT",       "int32"; ...
-        "VoxelSizeX",  "double"; ...
-        "VoxelSizeY",  "double"; ...
-        "VoxelSizeZ",  "double"; ...
+        "Filepath"   , "string" ; ...
+        par_names    , par_types; ...
+        "SeriesTotal", "int32"  ; ...
+        "SeriesInd"  , "int32"  ; ...
+        "SizeC"      , "int32"  ; ...
+        "SizeX"      , "int32"  ; ...
+        "SizeY"      , "int32"  ; ...
+        "SizeZ"      , "int32"  ; ...
+        "SizeT"      , "int32"  ; ...
+        "VoxelSizeX" , "double" ; ...
+        "VoxelSizeY" , "double" ; ...
+        "VoxelSizeZ" , "double" ; ...
         ]';
     tabSize = [0, size(tabVars, 2)];
     tab = table(Size=tabSize, VariableNames=tabVars(1,:), VariableTypes=tabVars(2,:));
 end
 
-function vals = retrieve_parameter_values(par_struct, row_selectors, col)
-    assert(all(size(row_selectors) == size(par_struct)))
-    vals = strings(size(row_selectors));
-    for pp = 1:length(par_struct)
-        vals(pp) = par_struct(pp).items(row_selectors(pp), col);
-    end
-end
-
-function tab = compile_file_table(par_struct, filepath_pattern)
-    n_pars = length(par_struct);
-    par_ind_func = @(m) 1:size(m, 1);
-    par_inds = cellfun(par_ind_func, {par_struct.items}, UniformOutput=false);
-    par_ind_combos = combinations(par_inds{:});
-    par_ind_combos.Properties.VariableNames = compose("Par%dInd", 1:n_pars);
-    filepath_placeholders = compose("{P%d}", 1:n_pars);
-    tab = table( ...
-        Size=[0,n_pars+1], ...
-        VariableTypes=["string",repmat("double",1,n_pars)], ...
-        VariableNames=["Filepath",par_ind_combos.Properties.VariableNames]);
-    for pp = 1:height(par_ind_combos)
-        filepath_values = retrieve_parameter_values(par_struct, par_ind_combos{pp,:}, 2);
-        file_pattern = replace(filepath_pattern, filepath_placeholders, filepath_values);
-        files = dir(file_pattern);
-        files = fullfile(string({files.folder}), string({files.name}))';
-        new_rows = [table(files, VariableNames="Filepath"), repmat(par_ind_combos(pp,:), length(files), 1)];
-        tab = [tab; new_rows]; %#ok<AGROW>
-    end
-end
-
-function tab = append_metadata_entry(tab, file_list_row, par_struct, image_reader, series_ind)
-    filepath = file_list_row.Filepath;
-    file_parameters = [ ...
-        retrieve_parameter_values(par_struct, file_list_row{1, 2:end}, 1); ...
-        retrieve_parameter_values(par_struct, file_list_row{1, 2:end}, 3);];
-    par_vals = mat2cell(file_parameters(:), ones(numel(file_parameters), 1));
+function tab = append_metadata_entry(tab, file_list_row, image_reader, series_ind)
+    par_vals = arrayfun(@(a) a, file_list_row{1,:}, UniformOutput=false);
     num_series = image_reader.getNumSeries();
     num_channels = image_reader.getNumChannels(series_ind);
     image_size = image_reader.getStackSizeXYZ(series_ind);
     num_time = image_reader.getSizeT(series_ind);
     voxel_size = [image_reader.getPixelSizeXY(series_ind), image_reader.getZStepSize(series_ind)];
-    tab(end + 1, :) = { ...
-        filepath, ...       % FileName
-        par_vals{:}, ...    % Experiment parameters
+    tab(end + 1, :) = [ ...
+        par_vals, ...       % Filepath and experiment parameters
+        { ...
         num_series, ...     % SeriesTotal
         series_ind, ...     % SeriesInd
         num_channels, ...   % SizeC
@@ -137,16 +92,16 @@ function tab = append_metadata_entry(tab, file_list_row, par_struct, image_reade
         voxel_size(1), ...  % VoxelSizeX
         voxel_size(2), ...  % VoxelSizeY
         voxel_size(3), ...  % VoxelSizeZ
-        };
+        }];
 end
 
 %% Main script section
 
 % metadata result table
-metadataTable = init_metadata_table(experimentParameters);
+metadataTable = init_metadata_table(fileManager.compileParameterCombinations());
 
 % file list
-fileList = compile_file_table(experimentParameters, fileSelector);
+fileList = fileManager.compileOriginalFileTable();
 
 numFiles = height(fileList);
 
@@ -161,7 +116,7 @@ for ff = 1:numFiles
 
     for ss = 1:numSeries
 
-        metadataTable = append_metadata_entry(metadataTable1, fileList(ff,:), experimentParameters, reader, ss);
+        metadataTable = append_metadata_entry(metadataTable, fileList(ff,:), reader, ss);
 
     end
 
