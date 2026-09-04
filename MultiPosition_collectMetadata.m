@@ -24,9 +24,9 @@
 dataRootDirectory = fullfile("path", "to", "data");
 
 % data file path pattern (for absolute file paths)
-% can contain placeholders "{P1}", "{P2}", "{P3}", ... for filepath-encoded
-% experiment parameters; those must then be specified as shown below
-fileSelector = fullfile(dataRootDirectory, "Data_{P1}", "{P2}{P3}*.nd2");
+% can contain placeholders "{ParameterName}" for filepath-encoded experiment
+% parameters; those must then be specified as shown below
+fileSelector = fullfile(dataRootDirectory, "Data_{Day}", "{Condition}{CellLine}*.nd2");
 
 % experiment data using the DatasetFileManager class
 fileManager = DatasetFileManager();

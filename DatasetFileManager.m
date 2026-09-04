@@ -19,7 +19,7 @@ classdef DatasetFileManager
     %       fileManager = fileManager.addParameter("CellLine");
     %       fileManager = fileManager.addLabel("CellLine", "Cell line 1", "A", "Cell1");
     %       fileManager = fileManager.addLabel("CellLine", "Cell line 2", "B", "Cell2");
-    %       fileManager.OriginalFilepathPattern = fullfile("data", "{P1}", "{P2}{P3}*.nd2");
+    %       fileManager.OriginalFilepathPattern = fullfile("data", "{Day}", "{Condition}{CellLine}*.nd2");
 
     properties
         OriginalFilepathPattern  (1,1) string = "";
@@ -88,10 +88,9 @@ classdef DatasetFileManager
             %Retrieve full file list matching OriginalFilepathPattern
             assert(~isempty(obj.OriginalFilepathPattern), ...
                 "OriginalFilepathPattern not set. Assign it before compiling file table.");
-            n_pars = length(obj.ParameterTables);
             combos = obj.labelIndexCombos();
             tab = obj.initializeFileTable();
-            filepath_placeholders = compose("{P%d}", 1:n_pars);
+            filepath_placeholders = compose("{%s}", obj.ParameterNames');
             for p = 1:height(combos)
                 filepath_values = obj.retrieveParameterValues(combos{p,:}, 2);
                 file_pattern = replace(obj.OriginalFilepathPattern, filepath_placeholders, filepath_values);
