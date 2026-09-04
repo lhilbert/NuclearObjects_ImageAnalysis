@@ -6,19 +6,20 @@ classdef DatasetFileManager
     %   structures, with experiment parameters encoded arbitrarily in the folder
     %   and file names.
     %
-    %   Start with defining an arbitrary number of experiment parameters (using
-    %   addParameter()) and the specific expressions available for every
-    %   parameter (using addLabel()). For each parameter expression, the class
-    %   stores a unique label, a filepath component that specifies the
-    %   expression in the original data file paths, and optionally a filepath
-    %   component that specifies the expression in a set of extracted data
-    %   files.
-    %
-    %   The OriginalFilepathPattern and ExtractedFilepathPattern properties
-    %   specify the filepath patterns, in which the parameter-specifying
-    %   filepath components are provided using the placeholders '{P1}', '{P2}',
-    %   '{P3}', ..., the number corresponding with the order in which parameters
-    %   were added.
+    %   Example usage:
+    %       fileManager = DatasetFileManager();
+    %       fileManager = fileManager.addParameter("Day");
+    %       fileManager = fileManager.addLabel("Day", "2026-Jan-01", "010126", "Day1");
+    %       fileManager = fileManager.addLabel("Day", "2026-Feb-28", "280226", "Day2");
+    %       fileManager = fileManager.addParameter("Condition");
+    %       fileManager = fileManager.addLabel("Condition", "Control", "Ctrl", "Cond0");
+    %       fileManager = fileManager.addLabel("Condition", "Condition 1", "Shake",  "Cond1");
+    %       fileManager = fileManager.addLabel("Condition", "Condition 2", "Rattle", "Cond2");
+    %       fileManager = fileManager.addLabel("Condition", "Condition 3", "Roll",   "Cond3");
+    %       fileManager = fileManager.addParameter("CellLine");
+    %       fileManager = fileManager.addLabel("CellLine", "Cell line 1", "A", "Cell1");
+    %       fileManager = fileManager.addLabel("CellLine", "Cell line 2", "B", "Cell2");
+    %       fileManager.OriginalFilepathPattern = fullfile("data", "{P1}", "{P2}{P3}*.nd2");
 
     properties
         OriginalFilepathPattern  (1,1) string = "";
