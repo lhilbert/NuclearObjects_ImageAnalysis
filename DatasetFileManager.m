@@ -47,7 +47,8 @@ classdef DatasetFileManager
 
         function obj = addParameter(obj, par_name)
             %Add new parameter table
-            assert(isempty(obj.findParameter(par_name)), "Parameter %s not found.", par_name)
+            assert(isempty(obj.findParameter(par_name)), ...
+                "Parameter '%s' already exists. Use unique parameter names.", par_name);
             obj.ParameterNames(end+1) = par_name;
             obj.ParameterTables(end+1) = {DatasetFileManager.initializeParameterTable(par_name)};
         end
@@ -65,13 +66,14 @@ classdef DatasetFileManager
         function obj = addLabel(obj, par_name, label, org_filepath_comp, ext_filepath_comp)
             %Add new parameter expression to parameter table
             par_ind = obj.findParameter(par_name);
-            assert(~isempty(par_ind), "Parameter %s not found.", par_name)
-            assert(isempty(find(obj.ParameterTables{par_ind}{:,1} == label, 1)), compose("The parameter %s already contains a label %s.", par_name, label))
+            assert(~isempty(par_ind), "Parameter '%s' not found. Add it first with addParameter().", par_name);
+            assert(isempty(find(obj.ParameterTables{par_ind}{:,1} == label, 1)), ...
+                compose("Parameter '%s' already contains label '%s'. Use unique labels.", par_name, label));
             obj.ParameterTables{par_ind}(end+1,:) = {label, org_filepath_comp, ext_filepath_comp};
         end
 
         function tab = compileParameterCombinations(obj)
-            %Create all parameter expression combinations 
+            %Create all parameter expression combinations
             combos = obj.labelIndexCombos();
             tab = obj.initializeFileTable();
             tab = removevars(tab, 1);
@@ -82,7 +84,9 @@ classdef DatasetFileManager
         end
 
         function tab = compileOriginalFileTable(obj)
-            %Retrieve full file list matching OriginalFilepathPattern 
+            %Retrieve full file list matching OriginalFilepathPattern
+            assert(~isempty(obj.OriginalFilepathPattern), ...
+                "OriginalFilepathPattern not set. Assign it before compiling file table.");
             n_pars = length(obj.ParameterTables);
             combos = obj.labelIndexCombos();
             tab = obj.initializeFileTable();
@@ -96,6 +100,12 @@ classdef DatasetFileManager
                 tab_values = obj.retrieveParameterValues(combos{p,:}, 1:3);
                 new_rows = [files, repmat(tab_values, n_files, 1)];
                 tab{end+1:end+n_files, :} = new_rows;
+            end
+
+            if height(tab) == 0
+                warning("DatasetFileManager:noFilesFound", ...
+                    "No files found matching pattern '%s'. Check your OriginalFilepathPattern and parameter labels.", ...
+                    obj.OriginalFilepathPattern);
             end
         end
 
