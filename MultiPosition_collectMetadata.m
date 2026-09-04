@@ -51,7 +51,7 @@ experimentParams = {...
 % Initialize file manager with bulk parameter definition
 fileManager = DatasetFileManager();
 fileManager = fileManager.defineParameters(experimentParams);
-fileManager.FilepathPattern = fileSelector;
+fileManager.OriginalFilepathPattern = fileSelector;
 
 % metadata output file
 metadataFile = fullfile(dataRootDirectory, "metadata.csv");
