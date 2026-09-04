@@ -6,7 +6,7 @@ classdef DatasetFileManager
     %   structures, with experiment parameters encoded arbitrarily in the folder
     %   and file names.
     %
-    %   Example usage:
+    %   Example usage (bulk definition):
     %       fileManager = DatasetFileManager();
     %       fileManager = fileManager.defineParameters({ ...
     %           {"Day",       ["2026-Jan-01", "010126", "Day1";
@@ -19,6 +19,9 @@ classdef DatasetFileManager
     %                          "Cell line 2", "B",      "Cell2"]} ...
     %       });
     %       fileManager.OriginalFilepathPattern = fullfile("data", "{Day}", "{Condition}{CellLine}*.nd2");
+    %
+    %   Example usage (config file):
+    %       fileManager = DatasetFileManager.fromConfigFile("config_example.json");
 
     properties
         OriginalFilepathPattern  (1,1) string = "";
@@ -135,6 +138,20 @@ classdef DatasetFileManager
                 fprintf("\nParameter ""%s"":\n\n", obj.ParameterNames(p));
                 disp(obj.ParameterTables{p});
             end
+        end
+    end
+
+    methods (Static)
+        function obj = fromConfigFile(configFile)
+            % Create DatasetFileManager from json configuration file
+            params = jsondecode(fileread(configFile));
+            % Convert to bulk definition format
+            paramDefs = cell(length(params), 1);
+            for p = 1:length(params)
+                paramDefs{p} = {string(params(p).name), string(cat(2,params(p).items{:})')};
+            end
+            obj = DatasetFileManager();
+            obj = obj.defineParameters(paramDefs);
         end
     end
 
