@@ -88,18 +88,22 @@ classdef DatasetFileManager
             %Retrieve full file list matching OriginalFilepathPattern
             assert(~isempty(obj.OriginalFilepathPattern), ...
                 "OriginalFilepathPattern not set. Assign it before compiling file table.");
+
             combos = obj.labelIndexCombos();
             tab = obj.initializeFileTable();
             filepath_placeholders = compose("{%s}", obj.ParameterNames');
+
             for p = 1:height(combos)
                 filepath_values = obj.retrieveParameterValues(combos{p,:}, 2);
                 file_pattern = replace(obj.OriginalFilepathPattern, filepath_placeholders, filepath_values);
                 files = dir(file_pattern);
                 files = fullfile(string({files.folder}), string({files.name}))';
                 n_files = length(files);
-                tab_values = obj.retrieveParameterValues(combos{p,:}, 1:3);
-                new_rows = [files, repmat(tab_values, n_files, 1)];
-                tab{end+1:end+n_files, :} = new_rows;
+                if n_files > 0
+                    tab_values = obj.retrieveParameterValues(combos{p,:}, 1:3);
+                    new_rows = [files, repmat(tab_values, n_files, 1)];
+                    tab{end+1:end+n_files, :} = new_rows;
+                end
             end
 
             if height(tab) == 0
@@ -111,12 +115,12 @@ classdef DatasetFileManager
 
         function disp(obj)
             %Display DATASETFILEMANAGER instance
-            fprintf("DatasetFileManager object\n\n")
-            fprintf("\t OriginalFilepathPattern: ""%s""\n", obj.OriginalFilepathPattern)
-            fprintf("\tExtractedFilepathPattern: ""%s""\n", obj.ExtractedFilepathPattern)
+            fprintf("DatasetFileManager object\n\n");
+            fprintf("\t OriginalFilepathPattern: ""%s""\n", obj.OriginalFilepathPattern);
+            fprintf("\tExtractedFilepathPattern: ""%s""\n", obj.ExtractedFilepathPattern);
             for p = 1:length(obj.ParameterTables)
                 fprintf("\nParameter ""%s"":\n\n", obj.ParameterNames(p));
-                disp(obj.ParameterTables{p})
+                disp(obj.ParameterTables{p});
             end
         end
     end
@@ -161,7 +165,7 @@ classdef DatasetFileManager
             %Retrieve combination of specific parameter expressions
             n_pars = length(obj.ParameterTables);
             n_cols = length(cols);
-            assert(length(row_selectors) == n_pars)
+            assert(length(row_selectors) == n_pars);
             vals = strings(1, n_pars * n_cols);
             for p = 1:n_pars
                 ind1 = (p-1) * n_cols + 1;
