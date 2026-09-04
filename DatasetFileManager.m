@@ -8,17 +8,16 @@ classdef DatasetFileManager
     %
     %   Example usage:
     %       fileManager = DatasetFileManager();
-    %       fileManager = fileManager.addParameter("Day");
-    %       fileManager = fileManager.addLabel("Day", "2026-Jan-01", "010126", "Day1");
-    %       fileManager = fileManager.addLabel("Day", "2026-Feb-28", "280226", "Day2");
-    %       fileManager = fileManager.addParameter("Condition");
-    %       fileManager = fileManager.addLabel("Condition", "Control", "Ctrl", "Cond0");
-    %       fileManager = fileManager.addLabel("Condition", "Condition 1", "Shake",  "Cond1");
-    %       fileManager = fileManager.addLabel("Condition", "Condition 2", "Rattle", "Cond2");
-    %       fileManager = fileManager.addLabel("Condition", "Condition 3", "Roll",   "Cond3");
-    %       fileManager = fileManager.addParameter("CellLine");
-    %       fileManager = fileManager.addLabel("CellLine", "Cell line 1", "A", "Cell1");
-    %       fileManager = fileManager.addLabel("CellLine", "Cell line 2", "B", "Cell2");
+    %       fileManager = fileManager.defineParameters({ ...
+    %           {"Day",       ["2026-Jan-01", "010126", "Day1";
+    %                          "2026-Feb-28", "280226", "Day2"]}, ...
+    %           {"Condition", ["Control",     "Ctrl",   "Cond0";
+    %                          "Condition 1", "Shake",  "Cond1"; ...
+    %                          "Condition 2", "Rattle", "Cond2"; ...
+    %                          "Condition 3", "Roll",   "Cond3"]}, ...
+    %           {"CellLine",  ["Cell line 1", "A",      "Cell1";
+    %                          "Cell line 2", "B",      "Cell2"]} ...
+    %       });
     %       fileManager.OriginalFilepathPattern = fullfile("data", "{Day}", "{Condition}{CellLine}*.nd2");
 
     properties
@@ -34,6 +33,20 @@ classdef DatasetFileManager
     methods
         function obj = DatasetFileManager()
             %Construct new DATASETFILEMANAGER instance
+        end
+
+        function obj = defineParameters(obj, paramDefs)
+            %Define all parameters at once
+            % paramDefs: cell array of {paramName, itemsTable} pairs
+            % itemsTable: N×3 string array [label, org_filepath_comp, ext_filepath_comp]
+            for p = 1:length(paramDefs)
+                parName = paramDefs{p}{1};
+                items = paramDefs{p}{2};
+                obj = obj.addParameter(parName);
+                for i = 1:size(items, 1)
+                    obj = obj.addLabel(parName, items(i,1), items(i,2), items(i,3));
+                end
+            end
         end
 
         function tab = getParameter(obj, par_name)
